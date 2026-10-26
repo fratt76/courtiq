@@ -9,8 +9,12 @@ const ZONES = {
   polso_sx:    { group: "polso",    label: "Polso sinistro" },
   polso_dx:    { group: "polso",    label: "Polso destro" },
   lombare:     { group: "lombare",  label: "Zona lombare" },
+  anca_sx:     { group: "anca",     label: "Anca e gluteo sinistro" },
+  anca_dx:     { group: "anca",     label: "Anca e gluteo destro" },
   ginocchio_sx:{ group: "ginocchio",label: "Ginocchio sinistro" },
   ginocchio_dx:{ group: "ginocchio",label: "Ginocchio destro" },
+  tibia_sx:    { group: "tibia",    label: "Tibia sinistra" },
+  tibia_dx:    { group: "tibia",    label: "Tibia destra" },
   achille_sx:  { group: "achille",  label: "Tendine d'Achille sinistro" },
   achille_dx:  { group: "achille",  label: "Tendine d'Achille destro" },
   caviglia_sx: { group: "caviglia", label: "Caviglia sinistra" },
@@ -19,13 +23,15 @@ const ZONES = {
 
 const GROUP_LABELS = {
   spalla: "Spalle", gomito: "Gomiti", polso: "Polsi", lombare: "Zona lombare",
-  ginocchio: "Ginocchia", achille: "Tendini d'Achille", caviglia: "Caviglie"
+  anca: "Anche e glutei", ginocchio: "Ginocchia", tibia: "Tibie", achille: "Tendini d'Achille", caviglia: "Caviglie"
 };
 
 const PAIN_TYPES = ["Indolenzimento", "Fitta", "Dolore sordo"];
 
-/* ordine di visualizzazione: tennis, pickleball, padel */
-const SPORTS = { tennis: "Tennis", pickleball: "Pickleball", padel: "Padel" };
+/* ordine di visualizzazione: tennis, pickleball, padel, running, preparazione atletica */
+const SPORTS = { tennis: "Tennis", pickleball: "Pickleball", padel: "Padel", running: "Running", atletica: "Preparazione atletica" };
+/* sport con campo (lavagna e mini-campo nei drill) */
+const COURT_SPORTS = ["tennis", "pickleball", "padel"];
 
 /* board: coordinate normalizzate sul rettangolo del campo (x 0-1 da sinistra, y 0-1 dall'alto).
    p = giocatore, o = avversario, b = palla. a = frecce [x1,y1,x2,y2,tipo] tipo: "ball" | "move" */
@@ -556,6 +562,334 @@ const DRILLS = [
     board: { p: [[0.3, 0.66], [0.7, 0.66]], o: [[0.3, 0.38], [0.7, 0.38]], b: [[0.5, 0.2]],
       a: [[0.3, 0.66, 0.3, 0.86, "move"], [0.7, 0.66, 0.7, 0.86, "move"], [0.5, 0.38, 0.5, 0.9, "ball"]] }
   }
+  ,
+  /* ---------------- RUNNING (niente campo: board assente) ---------------- */
+  {
+    id: "ru1", sport: "running", title: "Cadenza con metronomo", cat: "Tecnica di corsa", level: "Base",
+    time: "15-20 min", zones: ["ginocchio", "tibia", "anca"],
+    tactic: {
+      goal: "Abituarsi a passi un po' più corti e frequenti a parità di velocità, per alleggerire ogni appoggio.",
+      target: "La tua cadenza abituale più un piccolo aumento (circa 5%), sempre a ritmo facile.",
+      steps: [
+        "Corri 3 minuti a ritmo facile e conta i passi in 30 secondi: moltiplica per 2 e hai i passi al minuto (SPM).",
+        "Imposta il metronomo del calcolatore qui sopra a circa il 5% in più.",
+        "4-6 blocchi da 2 minuti seguendo il bip, con 2 minuti di corsa libera tra un blocco e l'altro.",
+        "La velocità resta la stessa: cambiano solo lunghezza e frequenza del passo."
+      ]
+    },
+    tech: {
+      chain: [
+        "Il piede appoggia sotto il corpo, non molto davanti.",
+        "Busto alto, leggera inclinazione in avanti che parte dalle caviglie.",
+        "Braccia piegate a circa 90° che oscillano avanti e indietro.",
+        "Contatto con il terreno breve ed elastico."
+      ],
+      faults: [
+        "Allungare il passo atterrando con il tallone molto avanti (overstriding).",
+        "Aumentare la cadenza tutta in una volta invece che a piccoli passi.",
+        "Spalle contratte e braccia che incrociano davanti al petto."
+      ]
+    }
+  },
+  {
+    id: "ru2", sport: "running", title: "Frazionati brevi (ripetute)", cat: "Frazionati", level: "Intermedio",
+    time: "30-40 min", zones: ["achille", "tibia", "ginocchio"],
+    tactic: {
+      goal: "Alternare tratti veloci e recuperi per migliorare la velocità senza accumulare troppa fatica.",
+      target: "Ritmo costante su tutte le ripetute: l'ultima deve essere simile alla prima.",
+      steps: [
+        "15 minuti di riscaldamento a ritmo facile, più qualche andatura tecnica.",
+        "6-8 ripetute da 400 m (o 90 secondi) a ritmo sostenuto ma controllato.",
+        "Recupero di 90 secondi-2 minuti camminando o corricchiando.",
+        "10 minuti di defaticamento facile."
+      ]
+    },
+    tech: {
+      chain: [
+        "Aumenta la velocità con la frequenza del passo, non allungando la falcata.",
+        "Spinta dall'anca, ginocchio che avanza, piede che ricade sotto il corpo.",
+        "Braccia più attive ma spalle rilassate.",
+        "Sguardo avanti, testa ferma."
+      ],
+      faults: [
+        "Partire troppo forte nella prima ripetuta.",
+        "Accorciare i recuperi quando si è già stanchi.",
+        "Fare sempre le ripetute su superfici dure senza alternare."
+      ]
+    }
+  },
+  {
+    id: "ru3", sport: "running", title: "Corsa a soglia", cat: "Soglia", level: "Intermedio",
+    time: "30-45 min", zones: ["anca", "ginocchio", "achille"],
+    tactic: {
+      goal: "Allenare il ritmo che si riesce a tenere a lungo con uno sforzo «comodamente impegnativo».",
+      target: "Sforzo intorno a RPE 7: riesci a dire poche parole, non a chiacchierare.",
+      steps: [
+        "15 minuti di riscaldamento facile.",
+        "2 blocchi da 10 minuti a soglia con 3 minuti facili in mezzo.",
+        "Quando ti senti pronto, passa a 20 minuti continui.",
+        "10 minuti di defaticamento facile."
+      ]
+    },
+    tech: {
+      chain: [
+        "Respirazione regolare e ritmica.",
+        "Passo costante: usa il calcolatore per fissare il passo al km.",
+        "Bacino stabile, senza ondeggiare di lato.",
+        "Appoggi silenziosi e leggeri."
+      ],
+      faults: [
+        "Trasformare la soglia in una gara.",
+        "Correre a soglia tutti i giorni senza giorni facili.",
+        "Ignorare un fastidio che aumenta durante il blocco."
+      ]
+    }
+  },
+  {
+    id: "ru4", sport: "running", title: "Salite brevi e discese controllate", cat: "Cambi di pendenza", level: "Intermedio",
+    time: "25-35 min", zones: ["achille", "tibia", "anca"],
+    tactic: {
+      goal: "Rinforzare gambe e spinta con la salita e imparare a scendere senza frenare di colpo.",
+      target: "Salita moderata di 60-100 m, sforzo sostenuto ma tecnica pulita.",
+      steps: [
+        "Riscaldamento di 15 minuti in piano.",
+        "6-10 salite con passi corti, busto leggermente in avanti, braccia attive.",
+        "Rientro in discesa camminando o corricchiando con passi corti e morbidi.",
+        "Aumenta il numero di salite solo di settimana in settimana."
+      ]
+    },
+    tech: {
+      chain: [
+        "In salita l'inclinazione parte dalle caviglie, non dalla vita.",
+        "Spinta completa della gamba d'appoggio.",
+        "In discesa passi corti e frequenti, piede sotto il corpo.",
+        "Ginocchia morbide in atterraggio."
+      ],
+      faults: [
+        "Piegarsi in avanti dalla vita.",
+        "Discese veloci a passi lunghi che caricano ginocchia e tibie.",
+        "Aggiungere troppe salite tutte insieme."
+      ]
+    }
+  },
+  {
+    id: "ru5", sport: "running", title: "Progressivo con pacing strutturato", cat: "Pacing", level: "Base",
+    time: "30-40 min", zones: ["ginocchio", "anca"],
+    tactic: {
+      goal: "Imparare a gestire il ritmo e chiudere più veloci di come si è partiti.",
+      target: "Tre parti uguali: facile, media, un po' più veloce (negative split).",
+      steps: [
+        "Dividi la corsa in tre parti uguali.",
+        "Primo terzo facile, secondo terzo a ritmo medio, ultimo terzo un po' più veloce.",
+        "Fissa con il calcolatore il passo al km di ciascuna parte.",
+        "Annota a fine corsa durata e RPE nel check-in."
+      ]
+    },
+    tech: {
+      chain: [
+        "Accelera aumentando prima la cadenza.",
+        "Mantieni la stessa postura in tutte e tre le parti.",
+        "Respirazione che sale gradualmente.",
+        "Rilassa viso e spalle quando aumenti il ritmo."
+      ],
+      faults: [
+        "Partire troppo veloci e rallentare nel finale.",
+        "Guardare solo l'orologio e non le sensazioni.",
+        "Saltare il defaticamento."
+      ]
+    }
+  },
+  {
+    id: "ru6", sport: "running", title: "Andature tecniche e allunghi", cat: "Tecnica di corsa", level: "Base",
+    time: "10-15 min", zones: ["achille", "caviglia", "anca"],
+    tactic: {
+      goal: "Migliorare coordinazione, appoggio e reattività del piede.",
+      target: "Gesti puliti e leggeri, non veloci.",
+      steps: [
+        "Skip basso e skip alto, 2 x 20 m ciascuno.",
+        "Calciata dietro, 2 x 20 m.",
+        "Corsa balzata leggera, 2 x 20 m.",
+        "4 allunghi da 60-80 m in progressione, con recupero completo camminando."
+      ]
+    },
+    tech: {
+      chain: [
+        "Appoggio sull'avampiede, tallone che sfiora il terreno.",
+        "Busto alto, bacino stabile.",
+        "Braccia coordinate con le gambe.",
+        "Ritmo prima della forza."
+      ],
+      faults: [
+        "Fare le andature da freddo.",
+        "Inclinarsi indietro con il busto.",
+        "Appoggi rumorosi e pesanti."
+      ]
+    }
+  },
+  /* ---------------- PREPARAZIONE ATLETICA GENERALE ---------------- */
+  {
+    id: "at1", sport: "atletica", title: "Schemi motori di base", cat: "Schemi motori", level: "Base",
+    time: "15-20 min", zones: ["ginocchio", "lombare", "spalla"],
+    tactic: {
+      goal: "Costruire i movimenti fondamentali su cui si appoggiano tutti gli sport: piegarsi, spingere, tirare, affondare, trasportare.",
+      target: "Gesto controllato su tutta l'ampiezza, prima della quantità e del carico.",
+      steps: [
+        "Squat a corpo libero, 2 x 10.",
+        "Piegamento in avanti a schiena neutra con un bastone lungo la schiena, 2 x 10.",
+        "Affondo indietro alternato, 2 x 8 per gamba.",
+        "Piegamenti (anche sulle ginocchia) e rematore con elastico, 2 x 10 ciascuno."
+      ]
+    },
+    tech: {
+      chain: [
+        "Schiena neutra in tutti gli esercizi.",
+        "Ginocchia allineate con le punte dei piedi.",
+        "Movimento lento in discesa e deciso in salita.",
+        "Respirazione regolare, senza trattenere il fiato."
+      ],
+      faults: [
+        "Ginocchia che cadono verso l'interno nello squat.",
+        "Schiena arrotondata nel piegamento in avanti.",
+        "Aumentare i carichi prima di aver consolidato il gesto."
+      ]
+    }
+  },
+  {
+    id: "at2", sport: "atletica", title: "Scaletta di agilità", cat: "Footwork", level: "Base",
+    time: "10 min", zones: ["caviglia", "achille", "ginocchio"],
+    tactic: {
+      goal: "Migliorare rapidità e precisione dei piedi.",
+      target: "Appoggi precisi dentro i quadrati, senza guardare troppo in basso.",
+      steps: [
+        "Un piede per quadrato, poi due piedi per quadrato.",
+        "Laterale dentro-dentro-fuori.",
+        "Salti a piedi pari, poi su un piede solo se ben controllati.",
+        "3-4 passaggi per esercizio, recupero completo."
+      ]
+    },
+    tech: {
+      chain: [
+        "Sugli avampiedi, ginocchia leggermente flesse.",
+        "Braccia che accompagnano il ritmo.",
+        "Busto stabile sopra i piedi.",
+        "Precisione prima della velocità."
+      ],
+      faults: [
+        "Correre sui talloni.",
+        "Accelerare perdendo la precisione degli appoggi.",
+        "Busto che oscilla molto."
+      ]
+    }
+  },
+  {
+    id: "at3", sport: "atletica", title: "Coni: cambi di direzione e decelerazione controllata", cat: "Decelerazione", level: "Intermedio",
+    time: "10-15 min", zones: ["ginocchio", "caviglia", "achille"],
+    tactic: {
+      goal: "Imparare a frenare e ripartire in sicurezza, il momento in cui ginocchia e caviglie sono più sollecitate.",
+      target: "Frenata in più passi corti, poi ripartenza nella nuova direzione.",
+      steps: [
+        "Due coni a 5 m: corsa, frenata controllata in 3 passi, ritorno.",
+        "Quattro coni a quadrato: spostamento avanti, laterale, indietro.",
+        "Cambio di direzione a 45° e poi a 90°.",
+        "4-6 ripetizioni per esercizio, recupero completo."
+      ]
+    },
+    tech: {
+      chain: [
+        "Abbassa il baricentro piegando anche e ginocchia mentre freni.",
+        "Ginocchio allineato al piede nella frenata.",
+        "Busto sopra il piede d'appoggio.",
+        "Spinta di ripartenza dal piede esterno."
+      ],
+      faults: [
+        "Frenare con un solo appoggio a gamba tesa.",
+        "Ginocchio che cede verso l'interno.",
+        "Busto che si inclina troppo all'indietro."
+      ]
+    }
+  },
+  {
+    id: "at4", sport: "atletica", title: "Reattività su segnale", cat: "Reattività", level: "Base",
+    time: "10 min", zones: ["caviglia", "ginocchio"],
+    tactic: {
+      goal: "Ridurre il tempo di reazione e il primo passo.",
+      target: "Partenza immediata al segnale nella direzione indicata.",
+      steps: [
+        "Un compagno indica una direzione (voce, mano o colore del cono).",
+        "Partenza e sprint di 3-5 m, poi frenata controllata.",
+        "Partenze da posizioni diverse: in piedi, seduto, di spalle.",
+        "Serie brevi, recupero completo tra le partenze."
+      ]
+    },
+    tech: {
+      chain: [
+        "Posizione pronta: piedi larghi, ginocchia flesse, peso sugli avampiedi.",
+        "Primo passo corto ed esplosivo.",
+        "Braccia che spingono avanti e indietro.",
+        "Frenata in più appoggi."
+      ],
+      faults: [
+        "Partire con un passo lungo e lento.",
+        "Anticipare il segnale.",
+        "Fare troppe ripetizioni senza recupero."
+      ]
+    }
+  },
+  {
+    id: "at5", sport: "atletica", title: "Catena cinetica: lancio rotazionale", cat: "Catene cinetiche", level: "Intermedio",
+    time: "10 min", zones: ["lombare", "spalla"],
+    tactic: {
+      goal: "Sentire come la forza passa dai piedi alle anche, al busto e alle braccia, come nei colpi da racchetta.",
+      target: "Lancio di una palla medica leggera contro un muro, di lato.",
+      steps: [
+        "Di fianco al muro, palla all'altezza del petto.",
+        "Carica ruotando anche e busto lontano dal muro.",
+        "Lancia ruotando prima le anche, poi il busto, infine le braccia.",
+        "2-3 serie da 6-8 lanci per lato."
+      ]
+    },
+    tech: {
+      chain: [
+        "La spinta parte dal piede dietro.",
+        "Le anche ruotano prima delle spalle.",
+        "Braccia che finiscono il movimento, non lo iniziano.",
+        "Schiena neutra durante tutta la rotazione."
+      ],
+      faults: [
+        "Lanciare solo con le braccia.",
+        "Usare una palla troppo pesante.",
+        "Ruotare piegando la schiena."
+      ]
+    }
+  },
+  {
+    id: "at6", sport: "atletica", title: "Stabilità di caviglia ed equilibrio", cat: "Prevenzione", level: "Base",
+    time: "8-10 min", zones: ["caviglia", "ginocchio"],
+    tactic: {
+      goal: "Migliorare il controllo della caviglia e del ginocchio su un piede solo.",
+      target: "Equilibrio stabile senza che il ginocchio ceda verso l'interno.",
+      steps: [
+        "Equilibrio su un piede, 3 x 30 secondi per lato.",
+        "Su un piede, tocca con l'altro piede avanti, di lato e dietro.",
+        "Piccoli saltelli da un piede all'altro con atterraggio fermo.",
+        "Progressione: occhi chiusi o superficie morbida, solo se sicuri."
+      ]
+    },
+    tech: {
+      chain: [
+        "Piede ben appoggiato: tallone, base dell'alluce e del mignolo.",
+        "Ginocchio morbido e allineato al piede.",
+        "Bacino orizzontale.",
+        "Sguardo avanti."
+      ],
+      faults: [
+        "Ginocchio rigido e bloccato.",
+        "Bacino che cade da un lato.",
+        "Progredire troppo in fretta."
+      ]
+    }
+  }
+
 ];
 
 /* Routine di mobilità e riscaldamento generali. zones = gruppi a cui la routine è collegata */
@@ -641,4 +975,171 @@ const ROUTINES = [
       { n: "Respirazione profonda", s: 40, d: "Inspira in 4 tempi, espira in 6 tempi." }
     ]
   }
+  ,
+  {
+    id: "r8", title: "Anche, glutei e bandelletta (runner)", zones: ["anca"], kind: "Mobilità e rinforzo",
+    steps: [
+      { n: "Ponte per i glutei", s: 45, d: "Solleva il bacino stringendo i glutei, scendi lentamente." },
+      { n: "Conchiglia, lato sinistro", s: 40, d: "Sdraiato sul fianco, ginocchia piegate: apri il ginocchio sopra senza ruotare il bacino." },
+      { n: "Conchiglia, lato destro", s: 40, d: "Stesso esercizio sull'altro fianco." },
+      { n: "Allungamento flessori anca (psoas), sinistro", s: 30, d: "In affondo con il ginocchio a terra, spingi dolcemente il bacino in avanti." },
+      { n: "Allungamento flessori anca (psoas), destro", s: 30, d: "Stesso allungamento sull'altra gamba." },
+      { n: "Allungamento laterale dell'anca", s: 40, d: "In piedi, incrocia una gamba dietro l'altra e inclina il busto dal lato opposto; alterna." },
+      { n: "Camminata laterale lenta", s: 45, d: "Ginocchia leggermente piegate, piccoli passi laterali, bacino fermo." }
+    ]
+  },
+  {
+    id: "r9", title: "Tibie, polpacci e piede (runner)", zones: ["tibia"], kind: "Mobilità e rinforzo",
+    steps: [
+      { n: "Circonduzioni delle caviglie", s: 40, d: "Cerchi lenti in entrambi i sensi." },
+      { n: "Camminata sui talloni", s: 30, d: "Punte sollevate, piccoli passi, senza forzare." },
+      { n: "Sollevamenti sui talloni lenti", s: 45, d: "Sali e scendi lentamente sugli avampiedi, con appoggio." },
+      { n: "Polpaccio al muro, gamba tesa", s: 40, d: "Mani al muro, gamba dietro tesa, tallone a terra; alterna." },
+      { n: "Raccogli l'asciugamano con le dita", s: 40, d: "Seduto, avvicina un asciugamano con le dita dei piedi; alterna." },
+      { n: "Equilibrio su un piede", s: 40, d: "20 secondi per piede, vicino a un appoggio." }
+    ]
+  },
+  {
+    id: "r10", title: "Settimana di scarico (periodizzazione)", zones: [], kind: "Scarico programmato",
+    steps: [
+      { n: "Riduci il volume", s: 30, d: "Questa settimana allenati circa un terzo in meno del solito, mantenendo la tecnica." },
+      { n: "Mobilità generale", s: 60, d: "Gatto e mucca, apertura del libro, rotazioni con ginocchia piegate." },
+      { n: "Ponte per i glutei", s: 45, d: "Lento e controllato." },
+      { n: "Equilibrio su un piede", s: 40, d: "20 secondi per piede." },
+      { n: "Respirazione profonda", s: 40, d: "Inspira in 4 tempi, espira in 6 tempi." }
+    ]
+  }
+
 ];
+
+/* ================= VIDEO DEL COLPO =================
+   Colpi selezionabili per sport, con la checklist del gesto (spunte fatte dall'utente).
+   Sono indicazioni tecniche generiche e diffuse, non valori misurati.
+   kind = famiglia di regole usata dall'analisi automatica (vedi VIDEO_RULES)
+   view = inquadratura richiesta per l'analisi: "side" laterale, "front" frontale */
+const VIDEO_SHOTS = {
+  tennis: [
+    { id: "serve", label: "Servizio", kind: "overhead", view: "side", rules: { elbowImpactMin: 140 }, checklist: [
+      "Lancio di palla davanti e leggermente sopra la testa",
+      "Piegamento delle gambe prima della spinta",
+      "Busto che ruota e porta il braccio",
+      "Impatto in alto con il braccio quasi disteso",
+      "Accompagnamento completo, senza fermare il braccio" ] },
+    { id: "forehand", label: "Dritto", kind: "ground", view: "side", checklist: [
+      "Split-step quando l'avversario colpisce",
+      "Preparazione anticipata con rotazione delle spalle",
+      "Gambe piegate e peso che va in avanti",
+      "Impatto davanti al corpo, polso stabile",
+      "Finale sopra la spalla opposta" ] },
+    { id: "backhand", label: "Rovescio", kind: "ground", view: "side", checklist: [
+      "Rotazione delle spalle in preparazione",
+      "Appoggio stabile, ginocchia piegate",
+      "Impatto davanti al corpo",
+      "Polso fermo, nessuna «frustata» di polso",
+      "Finale completo e rilassato" ] }
+  ],
+  pickleball: [
+    { id: "third", label: "Terzo colpo smorzato", kind: "soft", view: "side", checklist: [
+      "Paletta pronta davanti al corpo",
+      "Si scende con le gambe, non con la schiena",
+      "Movimento corto dalla spalla, polso fermo",
+      "Traiettoria morbida che scende nella Kitchen",
+      "Avanzamento verso la rete dopo il colpo" ] },
+    { id: "dink", label: "Dink", kind: "soft", view: "side", checklist: [
+      "Ginocchia piegate, baricentro basso",
+      "Paletta davanti, testa della paletta alta",
+      "Gesto corto guidato dalla spalla",
+      "Busto stabile, senza piegarsi in avanti",
+      "Recupero della posizione pronta" ] },
+    { id: "serve", label: "Servizio dal basso", kind: "underhand", view: "side", checklist: [
+      "Impatto sotto l'altezza della vita",
+      "Movimento del braccio dal basso verso l'alto",
+      "Peso che passa dal piede dietro a quello avanti",
+      "Busto stabile",
+      "Accompagnamento verso il bersaglio" ] }
+  ],
+  padel: [
+    { id: "bandeja", label: "Bandeja", kind: "overhead", view: "side", rules: { elbowImpactMin: 110 }, checklist: [
+      "Posizione di profilo, passi di aggiustamento",
+      "Braccio libero che accompagna e indica la palla",
+      "Impatto davanti al corpo, sopra la spalla",
+      "Gesto controllato, senza forzare la potenza",
+      "Rientro verso la rete dopo il colpo" ] },
+    { id: "vibora", label: "Víbora", kind: "overhead", view: "side", rules: { elbowImpactMin: 110 }, checklist: [
+      "Preparazione di profilo, come per la bandeja",
+      "Impatto più laterale, davanti al corpo",
+      "Rotazione del busto che porta il braccio",
+      "Polso che non forza l'effetto da solo",
+      "Recupero dell'equilibrio dopo il colpo" ] },
+    { id: "volley", label: "Volée", kind: "volley", view: "side", checklist: [
+      "Racchetta alta davanti al corpo",
+      "Gesto corto, senza caricare all'indietro",
+      "Impatto davanti, polso fermo",
+      "Passo in avanti con il piede opposto",
+      "Ritorno subito in posizione pronta" ] }
+  ],
+  running: [
+    { id: "side", label: "Corsa, vista laterale", kind: "run_side", view: "side", checklist: [
+      "Piede che appoggia sotto il corpo, non molto davanti",
+      "Busto alto, leggera inclinazione dalle caviglie",
+      "Braccia piegate che oscillano avanti e indietro",
+      "Appoggi leggeri e silenziosi",
+      "Testa ferma, sguardo avanti" ] },
+    { id: "front", label: "Corsa, vista frontale", kind: "run_front", view: "front", checklist: [
+      "Ginocchia allineate con i piedi, senza cadere verso l'interno",
+      "Bacino stabile, senza abbassarsi da un lato",
+      "Braccia che non incrociano davanti al petto",
+      "Piedi che non si incrociano sulla linea centrale",
+      "Spalle rilassate e allo stesso livello" ] }
+  ],
+  atletica: [
+    { id: "squat", label: "Squat", kind: "squat", view: "side", checklist: [
+      "Piedi alla larghezza delle spalle, talloni a terra",
+      "Schiena neutra per tutta la discesa",
+      "Ginocchia nella direzione delle punte",
+      "Discesa controllata, salita decisa",
+      "Respirazione regolare" ] },
+    { id: "landing", label: "Atterraggio da salto (frontale)", kind: "landing", view: "front", checklist: [
+      "Atterraggio sugli avampiedi, poi tallone",
+      "Ginocchia piegate per ammortizzare",
+      "Ginocchia allineate ai piedi, non verso l'interno",
+      "Busto stabile sopra i piedi",
+      "Atterraggio silenzioso" ] },
+    { id: "decel", label: "Frenata e cambio di direzione", kind: "decel", view: "side", checklist: [
+      "Frenata in più passi corti",
+      "Baricentro che si abbassa mentre freni",
+      "Ginocchio allineato al piede",
+      "Busto sopra il piede d'appoggio",
+      "Ripartenza con spinta del piede esterno" ] }
+  ]
+};
+
+/* Soglie dell'analisi automatica (indicative e modificabili).
+   Gli angoli sono in gradi, misurati sul piano dell'immagine (video 2D), quindi approssimativi.
+   - quality: quando l'analisi NON è affidabile e va rifatto il video
+   - kinds: regole per famiglia di gesto; il campo "rules" di un colpo in VIDEO_SHOTS sovrascrive i valori.
+   Nessuna soglia esprime un rischio di infortunio: servono solo a scegliere quale suggerimento mostrare. */
+const VIDEO_RULES = {
+  quality: {
+    minFrames: 8,               // fotogrammi analizzati minimi
+    minDetectedRatio: 0.7,      // quota di fotogrammi in cui la persona è stata trovata
+    minVisibility: 0.55,        // confidenza media dei punti chiave (0-1)
+    minInFrameRatio: 0.7,       // quota di fotogrammi con corpo intero dentro l'inquadratura
+    sideMaxShoulderRatio: 0.45, // vista laterale: larghezza spalle / lunghezza busto sotto questo valore (almeno in parte del video)
+    frontMinShoulderRatio: 0.5  // vista frontale: larghezza spalle / lunghezza busto sopra questo valore
+  },
+  sampleFps: { default: 15, run_side: 20, run_front: 20 }, // fotogrammi al secondo analizzati
+  maxSeconds: 12,                                          // durata massima analizzata
+  kinds: {
+    ground:    { elbowImpactMin: 90,  kneeFlexPrepMin: 15, trunkRotRangeMin: 20 },
+    overhead:  { elbowImpactMin: 130, kneeFlexPrepMin: 10, trunkLeanMax: 35, wristAboveShoulder: true },
+    volley:    { elbowImpactMin: 80,  trunkLeanMax: 40 },
+    soft:      { kneeFlexPrepMin: 20, trunkLeanMax: 40 },
+    underhand: { kneeFlexPrepMin: 10, trunkLeanMax: 40 },
+    run_side:  { cadenceLow: 160, overstrideMax: 0.2, trunkLeanMax: 20 }, // overstride: piede davanti all'anca / lunghezza gamba
+    run_front: { valgusMax: 0.08, trunkLeanMax: 15 },                    // valgus: spostamento interno del ginocchio / lunghezza gamba
+    squat:     { kneeFlexMin: 70, trunkLeanMax: 50 },
+    landing:   { valgusMax: 0.08 },                                     // ripresa frontale: si valuta solo l'allineamento delle ginocchia
+    decel:     { kneeFlexMin: 30, trunkLeanMax: 40 }
+  }
+};

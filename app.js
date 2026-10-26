@@ -13,8 +13,9 @@ const today = () => isoDay(Date.now());
 const dayNum = s => { const [y, m, d] = s.split("-").map(Number); return Math.round(new Date(y, m - 1, d).getTime() / DAY); };
 const fmtDate = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" }); };
 const fmtTime = s => `${Math.floor(s / 60)}:${pad2(Math.max(0, Math.ceil(s)) % 60)}`;
-const SPORT_IDS = Object.keys(SPORTS);              // tennis, pickleball, padel
-const SPORT_ICON = { tennis: "🎾", pickleball: "🏓", padel: "🥎" };
+const SPORT_IDS = Object.keys(SPORTS);              // tennis, pickleball, padel, running, atletica
+const isCourt = sp => COURT_SPORTS.includes(sp);
+const SPORT_ICON = { tennis: "🎾", pickleball: "🏓", padel: "🥎", running: "🏃", atletica: "🏋️" };
 const LEVELS = ["Base", "Intermedio"];
 const RPE_LABELS = ["", "Molto leggero", "Leggero", "Moderato", "Abbastanza impegnativo", "Impegnativo", "Impegnativo +", "Molto impegnativo", "Molto impegnativo +", "Quasi massimale", "Massimale"];
 
@@ -116,7 +117,7 @@ function go(tab) {
   render(tab); window.scrollTo(0, 0);
 }
 function render(tab = TAB) {
-  ({ oggi: S.mode === "coach" ? renderCoach : renderToday, corpo: renderBody, drill: renderDrills, lavagna: renderBoard, recupero: renderRecovery })[tab]();
+  ({ oggi: S.mode === "coach" ? renderCoach : renderToday, corpo: renderBody, drill: renderDrills, lavagna: renderBoard, recupero: renderRecovery, video: renderVideo })[tab]();
 }
 function setMode(m) {
   S.mode = m; save();
@@ -171,7 +172,8 @@ function alertsHTML(info) {
 const DISCLAIMER = `<div class="disclaimer"><span>⚕️</span><span>CourtIQ dà indicazioni generali di allenamento, non è un dispositivo medico. In caso di dolore forte, persistente o dopo un trauma, rivolgiti a un medico o a un fisioterapista.</span></div>`;
 
 /* ================= OGGI (giocatore) ================= */
-let CK = { sport: null, dur: 60, rpe: 6, date: null, notes: "" };
+let CK = { sport: null, dur: 60, rpe: 6, date: null, notes: "", km: "" };
+const paceTxt = (km, min) => { const p = min * 60 / km; return `${Math.floor(p / 60)}:${pad2(Math.round(p % 60) % 60)}/km`; };
 function renderToday() {
   const v = $("#view-oggi"); const info = analyze(S.sessions, S.draftPains);
   CK.sport = CK.sport || S.sport; CK.date = CK.date || today();
@@ -185,6 +187,8 @@ function renderToday() {
       <input type="range" id="ck-dur" min="15" max="180" step="5" value="${CK.dur}"><div class="ticks"><span>15</span><span>60</span><span>120</span><span>180</span></div>
       <label class="lbl">Sforzo percepito (RPE) <b id="ck-rpe-v">${CK.rpe}</b></label>
       <input type="range" id="ck-rpe" min="1" max="10" step="1" value="${CK.rpe}"><div class="ticks"><span>1 leggero</span><span id="ck-rpe-l">${RPE_LABELS[CK.rpe]}</span><span>10 massimo</span></div>
+      <div id="ck-km-wrap" ${CK.sport === "running" ? "" : "hidden"}><label class="lbl" for="ck-km">Distanza in km (facoltativa)</label>
+        <input type="number" class="field" id="ck-km" min="0" max="300" step="0.1" inputmode="decimal" placeholder="es. 8" value="${esc(CK.km)}"></div>
       <div class="loadbox"><div><div class="small mut">Carico della sessione</div><b id="ck-load">${CK.dur * CK.rpe}</b> <span class="small mut">UA</span></div>
         <div class="small mut" style="text-align:right" id="ck-proj"></div></div>
       <div class="row between"><b>Fastidi</b><button type="button" class="btn sm ghost" id="ck-body">Segna sulla mappa →</button></div>
@@ -196,7 +200,7 @@ function renderToday() {
     </div>
     ${acwrCard(info)}
     <div class="card"><h3>Ultime sessioni</h3>
-      ${recent.length ? `<ul class="list">${recent.map(s => `<li><span class="dot" style="background:var(--acc2)"></span><div class="grow"><div class="t">${SPORT_ICON[s.sport] || ""} ${esc(SPORTS[s.sport] || s.sport)} · ${s.dur} min · RPE ${s.rpe}</div>
+      ${recent.length ? `<ul class="list">${recent.map(s => `<li><span class="dot" style="background:var(--acc2)"></span><div class="grow"><div class="t">${SPORT_ICON[s.sport] || ""} ${esc(SPORTS[s.sport] || s.sport)} · ${s.dur} min${s.km ? ` · ${s.km} km · ${paceTxt(s.km, s.dur)}` : ""} · RPE ${s.rpe}</div>
         <div class="s">${fmtDate(s.date)} · carico ${s.dur * s.rpe}${(s.pains || []).length ? " · " + s.pains.map(p => `${esc(ZONES[p.zone]?.label)} ${p.sev}/10`).join(", ") : ""}</div></div>
         <button type="button" class="icon-btn" data-del="${s.id}" aria-label="Elimina">✕</button></li>`).join("")}</ul>`
         : `<div class="empty">Nessuna sessione ancora. Registra la prima qui sopra oppure <button type="button" class="btn sm ghost" id="demo">carica dati di esempio</button></div>`}
@@ -216,14 +220,18 @@ function renderToday() {
     $("#ck-proj").innerHTML = p.insufficient ? `<span class="z-none insuff">${INSUFF_TXT}</span>` : p.ratio == null ? "" : `ACWR dopo il salvataggio<br><b class="z-${p.zone}">${p.ratio.toFixed(2)}</b> · ${ZONE_TXT[p.zone][0]}`;
   };
   dur.oninput = upd; rpe.oninput = upd; upd();
-  bindChips(v, "ck-sport", val => { CK.sport = val; S.sport = val; save(); });
+  bindChips(v, "ck-sport", val => { CK.sport = val; S.sport = val; save(); $("#ck-km-wrap").hidden = val !== "running"; });
+  $("#ck-km").oninput = e => CK.km = e.target.value;
   $("#ck-body").onclick = () => go("corpo");
   $("#ck-date").onchange = e => { CK.date = e.target.value; upd(); };
   $("#ck-notes").oninput = e => CK.notes = e.target.value;
   $("#ck-save").onclick = () => {
     const pains = Object.entries(S.draftPains).map(([zone, p]) => ({ zone, sev: p.sev, type: p.type }));
-    S.sessions.push({ id: uid(), ts: Date.now(), date: CK.date || today(), sport: CK.sport, dur: CK.dur, rpe: CK.rpe, notes: CK.notes.trim(), pains });
-    S.draftPains = {}; CK.notes = ""; CK.date = today(); save();
+    const ses = { id: uid(), ts: Date.now(), date: CK.date || today(), sport: CK.sport, dur: CK.dur, rpe: CK.rpe, notes: CK.notes.trim(), pains };
+    const km = parseFloat(String(CK.km).replace(",", "."));
+    if (CK.sport === "running" && km > 0) ses.km = Math.round(km * 100) / 100;
+    S.sessions.push(ses);
+    S.draftPains = {}; CK.notes = ""; CK.km = ""; CK.date = today(); save();
     const hi = pains.some(p => p.sev >= 3);
     toast(hi ? "Sessione salvata · routine di scarico pronta" : "Sessione salvata");
     hi ? go("recupero") : renderToday();
@@ -256,7 +264,8 @@ function demoAthletes() {
     { id: uid(), name: "Giulia R.", sport: "tennis", demo: true, sessions: demoSessions(3, { sports: ["tennis"], spike: true }), assigned: [] },
     { id: uid(), name: "Marco B.", sport: "pickleball", demo: true, sessions: demoSessions(5, { sports: ["pickleball"], pain: "gomito_dx" }), assigned: [] },
     { id: uid(), name: "Sara L.", sport: "padel", demo: true, sessions: demoSessions(7, { sports: ["padel"], pain: "spalla_dx" }), assigned: [] },
-    { id: uid(), name: "Luca P.", sport: "tennis", demo: true, sessions: demoSessions(11, { sports: ["tennis", "padel"] }), assigned: [] }
+    { id: uid(), name: "Luca P.", sport: "tennis", demo: true, sessions: demoSessions(11, { sports: ["tennis", "padel"] }), assigned: [] },
+    { id: uid(), name: "Paolo M.", sport: "running", demo: true, sessions: demoSessions(13, { sports: ["running", "atletica"], pain: "tibia_dx" }), assigned: [] }
   ];
 }
 function renderCoach() {
@@ -348,7 +357,7 @@ function copyText(t) {
 /* ================= CORPO: mappa del dolore ================= */
 const HOT = {
   spalla_dx: [64, 94], spalla_sx: [136, 94], gomito_dx: [50, 150], gomito_sx: [150, 150], polso_dx: [40, 200], polso_sx: [160, 200],
-  lombare: [100, 182], ginocchio_dx: [84, 284], ginocchio_sx: [116, 284], achille_dx: [86, 344], achille_sx: [114, 344], caviglia_dx: [82, 370], caviglia_sx: [118, 370]
+  lombare: [100, 182], anca_dx: [72, 210], anca_sx: [128, 210], tibia_dx: [84, 314], tibia_sx: [116, 314], ginocchio_dx: [84, 284], ginocchio_sx: [116, 284], achille_dx: [86, 344], achille_sx: [114, 344], caviglia_dx: [82, 370], caviglia_sx: [118, 370]
 };
 function bodySVG(pains) {
   const sil = `<g class="sil">
@@ -407,7 +416,9 @@ function renderDrills() {
   if (S.hideRisky) list = list.filter(d => !risky(d).length);
   v.innerHTML = `
     ${S.mode === "coach" ? plannerCard() : ""}
-    <div class="card tight"><h2>Libreria drill</h2>${sportChips(S.drillSport, "dr-sport", true)}
+    <div class="card tight"><h2>Libreria drill</h2>${sportChips(S.drillSport, "dr-sport", true)}</div>
+    ${S.drillSport === "running" ? paceCard() : ""}${S.drillSport === "atletica" ? periodCard() : ""}
+    <div class="card tight" ${info.riskyGroups.length || hidden ? "" : "hidden"}>
       ${info.riskyGroups.length ? `<label class="switch"><input type="checkbox" id="hide" ${S.hideRisky ? "checked" : ""}> Nascondi drill che sollecitano zone con fastidio (${info.riskyGroups.map(g => esc(GROUP_LABELS[g])).join(", ")})</label>` : ""}
       ${hidden ? `<p class="small mut">${hidden} drill nascost${hidden === 1 ? "o" : "i"} per proteggere le zone con fastidio.</p>` : ""}</div>
     ${list.map(d => { const r = risky(d);
@@ -415,12 +426,12 @@ function renderDrills() {
         <span style="flex:1;min-width:0"><span class="t" style="display:block">${esc(d.title)}</span><span class="meta"><span class="pill">${esc(SPORTS[d.sport])}</span><span class="pill">${esc(d.cat)}</span><span class="pill">${esc(d.level)}</span><span class="pill">${esc(d.time)}</span>${r.length ? `<span class="pill red">Sollecita ${r.map(g => esc(GROUP_LABELS[g].toLowerCase())).join(", ")}</span>` : ""}</span></span>
         <span class="chev">▾</span></button>
         <div class="bd">${r.length ? `<div class="alert red"><span>⚠️</span><div>Questo drill sollecita una zona in cui hai segnalato fastidio. Meglio rimandarlo e fare la routine di scarico.</div></div>` : ""}
-          <div class="seg full layers" role="group"><button type="button" class="on" data-l="tac">Tattica e bersagli</button><button type="button" data-l="tec">Biomeccanica</button></div>
+          <div class="seg full layers" role="group"><button type="button" class="on" data-l="tac">${isCourt(d.sport) ? "Tattica e bersagli" : "Obiettivo e seduta"}</button><button type="button" data-l="tec">Biomeccanica</button></div>
           <div class="layer" data-layer="tac"><h4>Obiettivo</h4><p>${esc(d.tactic.goal)}</p><h4>Bersaglio</h4><p>${esc(d.tactic.target)}</p><h4>Esecuzione</h4><ol>${d.tactic.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
-            <div class="mini">${courtSVG(d.sport, d.board ? boardFromDrill(d) : null, true)}</div></div>
+            ${isCourt(d.sport) ? `<div class="mini">${courtSVG(d.sport, d.board ? boardFromDrill(d) : null, true)}</div>` : ""}</div>
           <div class="layer" data-layer="tec" hidden><h4>Catena cinetica</h4><ul>${d.tech.chain.map(s => `<li>${esc(s)}</li>`).join("")}</ul><h4>Errori che sovraccaricano</h4><ul>${d.tech.faults.map(s => `<li>${esc(s)}</li>`).join("")}</ul>
             <h4>Zone sollecitate</h4><div class="chips">${d.zones.map(z => `<span class="pill ${info.riskyGroups.includes(z) ? "red" : ""}">${esc(GROUP_LABELS[z])}</span>`).join("")}</div></div>
-          <div class="btns" style="margin-top:12px"><button type="button" class="btn sm" data-board="${d.id}">Apri in lavagna</button></div></div></div>`; }).join("") || `<div class="empty">Nessun drill disponibile con i filtri attuali.</div>`}`;
+          ${isCourt(d.sport) ? `<div class="btns" style="margin-top:12px"><button type="button" class="btn sm" data-board="${d.id}">Apri in lavagna</button></div>` : ""}</div></div>`; }).join("") || `<div class="empty">Nessun drill disponibile con i filtri attuali.</div>`}`;
   bindChips(v, "dr-sport", x => { S.drillSport = x; save(); renderDrills(); });
   $("#hide") && ($("#hide").onchange = e => { S.hideRisky = e.target.checked; save(); renderDrills(); });
   $$(".drill", v).forEach(c => {
@@ -429,6 +440,65 @@ function renderDrills() {
   });
   $$("[data-board]", v).forEach(b => b.onclick = () => { const d = DRILLS.find(x => x.id === b.dataset.board); S.boards[d.sport] = boardFromDrill(d); S.boardSport = d.sport; save(); go("lavagna"); toast("Schema caricato in lavagna"); });
   if (S.mode === "coach") bindPlanner(v);
+  if (S.drillSport === "running") bindPace(v);
+}
+
+/* Running: calcolatore passo/cadenza con metronomo */
+let PC = { km: "10", h: "0", m: "55", s: "0", spm: 170, tpace: "5:30" };
+const parsePace = t => { const m = String(t).trim().match(/^(\d{1,2})[:.,'](\d{1,2})$/); return m && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
+const fmtPace = sec => `${Math.floor(sec / 60)}:${pad2(Math.round(sec % 60) % 60)}`;
+const fmtHMS = sec => { sec = Math.round(sec); const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60); return (h ? h + ":" + pad2(m) : m) + ":" + pad2(sec % 60); };
+function paceCalc(km, secs) { if (!(km > 0) || !(secs > 0)) return null; return { pace: secs / km, kmh: km / (secs / 3600) }; }
+function paceCard() {
+  return `<div class="card" id="pace"><div class="row between"><h3>Calcolatore passo e cadenza</h3><span class="pill acc">Running</span></div>
+    <label class="lbl" for="pc-km">Distanza (km)</label><input type="number" class="field" id="pc-km" min="0" step="0.1" inputmode="decimal" value="${esc(PC.km)}">
+    <label class="lbl">Tempo (ore · minuti · secondi)</label>
+    <div class="grid3"><input type="number" class="field" id="pc-h" min="0" inputmode="numeric" value="${esc(PC.h)}" aria-label="Ore"><input type="number" class="field" id="pc-m" min="0" max="59" inputmode="numeric" value="${esc(PC.m)}" aria-label="Minuti"><input type="number" class="field" id="pc-s" min="0" max="59" inputmode="numeric" value="${esc(PC.s)}" aria-label="Secondi"></div>
+    <div class="kpis" id="pc-out"></div>
+    <label class="lbl" for="pc-tp">Passo obiettivo (min:sec al km)</label><input type="text" class="field" id="pc-tp" inputmode="decimal" placeholder="5:30" value="${esc(PC.tpace)}">
+    <p class="small mut" id="pc-tout" style="margin:6px 0 0"></p>
+    <label class="lbl">Cadenza obiettivo <b id="pc-spm-v">${PC.spm} passi/min</b></label>
+    <input type="range" id="pc-spm" min="140" max="200" step="1" value="${PC.spm}"><div class="ticks"><span>140</span><span>170</span><span>200</span></div>
+    <button type="button" class="btn block" id="pc-met">${MET.on ? "Ferma metronomo" : "▶ Avvia metronomo"}</button>
+    <p class="small mut" style="margin:8px 0 0">Per contare la tua cadenza: passi in 30 secondi × 2. Se vuoi aumentarla, procedi a piccoli passi (circa 5% alla volta) e a ritmo facile.</p></div>`;
+}
+function bindPace(v) {
+  const calc = () => {
+    PC.km = $("#pc-km", v).value; PC.h = $("#pc-h", v).value; PC.m = $("#pc-m", v).value; PC.s = $("#pc-s", v).value; PC.tpace = $("#pc-tp", v).value;
+    const km = parseFloat(String(PC.km).replace(",", ".")), secs = (+PC.h || 0) * 3600 + (+PC.m || 0) * 60 + (+PC.s || 0);
+    const r = paceCalc(km, secs);
+    $("#pc-out", v).innerHTML = r ? `<div class="kpi"><b id="pc-pace">${fmtPace(r.pace)}</b><span>min/km</span></div><div class="kpi"><b id="pc-kmh">${r.kmh.toFixed(1)}</b><span>km/h</span></div><div class="kpi"><b>${fmtHMS(secs)}</b><span>tempo</span></div>`
+      : `<div class="kpi" style="grid-column:1/-1"><span>Inserisci distanza e tempo</span></div>`;
+    const tp = parsePace(PC.tpace);
+    $("#pc-tout", v).innerHTML = tp && km > 0 ? `A ${fmtPace(tp)}/km chiudi ${String(km).replace(".", ",")} km in <b id="pc-ttime">${fmtHMS(tp * km)}</b> (${(3600 / tp).toFixed(1)} km/h).` : tp ? "" : "Scrivi il passo come minuti:secondi, ad esempio 5:30.";
+  };
+  ["#pc-km", "#pc-h", "#pc-m", "#pc-s", "#pc-tp"].forEach(id => $(id, v).oninput = calc); calc();
+  const sp = $("#pc-spm", v); setRangeFill(sp);
+  sp.oninput = () => { PC.spm = +sp.value; setRangeFill(sp); $("#pc-spm-v", v).textContent = PC.spm + " passi/min"; };
+  $("#pc-met", v).onclick = () => { MET.on ? metStop() : metStart(); $("#pc-met", v).textContent = MET.on ? "Ferma metronomo" : "▶ Avvia metronomo"; };
+}
+/* metronomo: bip programmati in anticipo sull'AudioContext, al ritmo PC.spm */
+const MET = { on: false, h: null, next: 0, n: 0 };
+function metStart() {
+  try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); AC.resume && AC.resume(); } catch (e) { return; }
+  MET.on = true; MET.next = AC.currentTime + 0.1; MET.n = 0; wakeLock(true);
+  MET.h = setInterval(() => {
+    while (MET.next < AC.currentTime + 0.2) {
+      const o = AC.createOscillator(), g = AC.createGain(); o.frequency.value = MET.n % 2 ? 880 : 1200;
+      g.gain.setValueAtTime(.18, MET.next); g.gain.exponentialRampToValueAtTime(.001, MET.next + .05);
+      o.connect(g).connect(AC.destination); o.start(MET.next); o.stop(MET.next + .06);
+      MET.next += 60 / PC.spm; MET.n++;
+    }
+  }, 25);
+}
+function metStop() { MET.on = false; clearInterval(MET.h); wakeLock(false); }
+
+/* Preparazione atletica: promemoria di periodizzazione (generico) */
+function periodCard() {
+  return `<div class="card" id="period"><div class="row between"><h3>Periodizzazione</h3><span class="pill acc">Preparazione atletica</span></div>
+    <p class="small">Il sovraccarico arriva spesso quando non si programmano settimane più leggere. Un'organizzazione semplice e diffusa:</p>
+    <ul class="small"><li>Alcune settimane di carico che cresce gradualmente (2-3).</li><li>Una settimana di scarico con volume ridotto, mantenendo la tecnica.</li><li>Poi si riparte, ricontrollando le sensazioni.</li></ul>
+    <p class="small mut">Il grafico ACWR nella schermata Oggi e la routine «Settimana di scarico» in Recupero ti aiutano a capire quando alleggerire. Per un piano personalizzato rivolgiti a un preparatore.</p></div>`;
 }
 
 /* Session planner (coach): lezione da 60 minuti in 3 clic */
@@ -450,7 +520,8 @@ function bindPlanner(v) {
     const pool = DRILLS.filter(d => d.sport === PL.sport && LEVELS.indexOf(d.level) <= LEVELS.indexOf(PL.level));
     const pick = pool.filter(d => d.cat === PL.focus).concat(pool.filter(d => d.cat !== PL.focus)).slice(0, 3);
     pick.sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level));
-    const plan = [["10 min", "Riscaldamento", ROUTINES[0].title], ...pick.map(d => ["10 min", "Drill", d.title]), ["15 min", "Gioco guidato", "Punti a tema sull'obiettivo della lezione"], ["5 min", "Defaticamento", ROUTINES.find(r => r.id === "r7").title]];
+    const final = PL.sport === "running" ? ["15 min", "Corsa facile", "Corsa facile a ritmo di conversazione"] : PL.sport === "atletica" ? ["15 min", "Circuito", "Circuito a stazioni sugli schemi della seduta"] : ["15 min", "Gioco guidato", "Punti a tema sull'obiettivo della lezione"];
+    const plan = [["10 min", "Riscaldamento", ROUTINES[0].title], ...pick.map(d => ["10 min", "Drill", d.title]), final, ["5 min", "Defaticamento", ROUTINES.find(r => r.id === "r7").title]];
     $("#pl-out", v).innerHTML = `<ol class="list steps" style="margin-top:12px">${plan.map((p, k) => `<li><span class="num">${k + 1}</span><div class="grow"><div class="t">${esc(p[2])}</div><div class="s">${p[1]} · ${p[0]}</div></div></li>`).join("")}</ol>
       <button type="button" class="btn sm block" id="pl-copy">Copia piano</button>`;
     $("#pl-copy", v).onclick = () => copyText([`CourtIQ · Piano lezione ${SPORTS[PL.sport]} · ${PL.level}${PL.focus ? " · " + PL.focus : ""}`, ...plan.map((p, k) => `${k + 1}. ${p[1]} (${p[0]}): ${p[2]}`)].join("\n"));
@@ -529,12 +600,12 @@ function courtSVG(sport, board, mini = false) {
 let TOOL = "move", UNDO = [];
 function renderBoard() {
   const v = $("#view-lavagna");
-  const sport = S.boardSport || S.sport;
+  const sport = isCourt(S.boardSport) ? S.boardSport : isCourt(S.sport) ? S.sport : "tennis";
   if (!S.boards[sport]) S.boards[sport] = defaultBoard(sport);
   const b = S.boards[sport];
   const tools = [["move", "✋ Sposta"], ["ball", "➶ Traiettoria palla"], ["move-arrow", "➜ Spostamento"], ["del", "🗑 Elimina"]];
   v.innerHTML = `
-    <div class="card tight"><div class="seg full" id="bs">${SPORT_IDS.map(id => `<button type="button" class="${id === sport ? "on" : ""}" data-s="${id}">${SPORTS[id]}</button>`).join("")}</div>
+    <div class="card tight"><div class="seg full" id="bs">${COURT_SPORTS.map(id => `<button type="button" class="${id === sport ? "on" : ""}" data-s="${id}">${SPORTS[id]}</button>`).join("")}</div>
       ${b.from ? `<p class="small mut" style="margin:8px 0 0">Schema: <b>${esc(b.from)}</b></p>` : ""}
       <div class="toolbar">${tools.map(([id, l]) => `<button type="button" class="chip ${TOOL === id ? "on" : ""}" data-tool="${id}">${l}</button>`).join("")}</div>
       <div class="toolbar"><button type="button" class="chip" data-add="p">+ Giocatore</button><button type="button" class="chip" data-add="o">+ Avversario</button><button type="button" class="chip" data-add="b">+ Palla</button><span class="sp"></span>
