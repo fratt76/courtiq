@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="CourtIQ: tattica, carichi e recupero per Tennis, Pickleball e Padel">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CourtIQ">
+<title>CourtIQ · Tennis · Pickleball · Padel</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <img src="icons/icon-192.png" alt="" class="logo">
+    <div>
+      <h1>CourtIQ</h1>
+      <p class="sub">Tennis · Pickleball · Padel</p>
+    </div>
+  </div>
+  <div class="seg mode" role="group" aria-label="Modalità">
+    <button type="button" data-mode="player" class="on">Giocatore</button>
+    <button type="button" data-mode="coach">Coach</button>
+  </div>
+</header>
+
+<main id="main">
+  <section id="view-oggi" class="view active" aria-label="Oggi"></section>
+  <section id="view-corpo" class="view" aria-label="Corpo"></section>
+  <section id="view-drill" class="view" aria-label="Drill"></section>
+  <section id="view-lavagna" class="view" aria-label="Lavagna"></section>
+  <section id="view-recupero" class="view" aria-label="Recupero"></section>
+</main>
+
+<nav class="tabs" aria-label="Navigazione">
+  <button type="button" data-tab="oggi" class="on">
+    <svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span id="tab-oggi-label">Oggi</span></button>
+  <button type="button" data-tab="corpo">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.5"/><path d="M12 8v7m0 0-3 6m3-6 3 6M6 10.5l6-1.5 6 1.5"/></svg><span>Corpo</span></button>
+  <button type="button" data-tab="drill">
+    <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Drill</span></button>
+  <button type="button" data-tab="lavagna">
+    <svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="1"/><path d="M5 12h14M8.5 2.5v19m7-19v19"/></svg><span>Lavagna</span></button>
+  <button type="button" data-tab="recupero">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span>Recupero</span></button>
+</nav>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-bg" data-close></div>
+  <div class="sheet-card" role="dialog" aria-modal="true"><div id="sheet-body"></div></div>
+</div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
