@@ -1,7 +1,7 @@
 {
-  "name": "CourtIQ · Tennis · Pickleball · Padel · Running",
-  "short_name": "CourtIQ",
-  "description": "Tattica, carichi di allenamento, recupero, prevenzione e video del colpo per Tennis, Pickleball, Padel, Running e Preparazione atletica.",
+  "name": "KinetIQ · Longevità Atletica & Biomeccanica",
+  "short_name": "KinetIQ",
+  "description": "Muoviti meglio. Correggi il gesto. Non fermarti mai. Carichi, fastidi, drill, lavagna, prevenzione e video per racchette, corsa, atletica, golf, sci e kettlebell. I dati restano sul telefono.",
   "lang": "it",
   "start_url": "./index.html",
   "scope": "./",

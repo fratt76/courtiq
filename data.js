@@ -28,10 +28,23 @@ const GROUP_LABELS = {
 
 const PAIN_TYPES = ["Indolenzimento", "Fitta", "Dolore sordo"];
 
-/* ordine di visualizzazione: tennis, pickleball, padel, running, preparazione atletica */
-const SPORTS = { tennis: "Tennis", pickleball: "Pickleball", padel: "Padel", running: "Running", atletica: "Preparazione atletica" };
+/* Padel, Tennis, Pickleball, Running, Atletica restano; Golf, Sci e Kettlebell si aggiungono.
+   Le chiavi (tennis, padel, …) non vanno rinominate: sono salvate nelle sessioni già in localStorage. */
+const SPORTS = {
+  padel: "Padel", tennis: "Tennis", pickleball: "Pickleball",
+  running: "Running", sci: "Sci",
+  golf: "Golf", kettlebell: "Kettlebell", atletica: "Preparazione atletica"
+};
+/* selettore orizzontale per categorie */
+const SPORT_CATS = [
+  { id: "racchette", label: "Racchette", sports: ["padel", "tennis", "pickleball"] },
+  { id: "endurance", label: "Endurance & Montagna", sports: ["running", "sci"] },
+  { id: "forza", label: "Forza & Rotazione", sports: ["golf", "kettlebell", "atletica"] }
+];
 /* sport con campo (lavagna e mini-campo nei drill) */
 const COURT_SPORTS = ["tennis", "pickleball", "padel"];
+/* lavagna dedicata (non è un campo da racchetta) */
+const TACTICAL_SPORTS = ["golf", "sci", "kettlebell"];
 
 /* board: coordinate normalizzate sul rettangolo del campo (x 0-1 da sinistra, y 0-1 dall'alto).
    p = giocatore, o = avversario, b = palla. a = frecce [x1,y1,x2,y2,tipo] tipo: "ball" | "move" */
@@ -888,6 +901,168 @@ const DRILLS = [
         "Progredire troppo in fretta."
       ]
     }
+  },
+  {
+    id: "g1", sport: "golf", title: "Tenuta dello spine angle", cat: "Full swing", level: "Base",
+    time: "10-15 min", zones: ["lombare", "anca"],
+    tactic: {
+      goal: "Mantenere l'inclinazione del busto dal take-away fino all'impatto, senza alzarsi (early extension).",
+      target: "Finish in equilibrio, con il bacino che ha ruotato e non è scivolato verso la palla.",
+      steps: [
+        "Dieci swing lenti a vuoto, solo con un bastone o un ferro corto.",
+        "Un compagno (o il telefono di lato) controlla che il bacino non avanzi verso la palla.",
+        "Dieci palline a velocità media, stesso intento.",
+        "Se perdi l'inclinazione, torna allo swing a vuoto."
+      ]
+    },
+    tech: {
+      chain: [
+        "La rotazione parte dal bacino e dal torace (X-factor), non dalle braccia.",
+        "Il busto resta inclinato in avanti per tutto il gesto.",
+        "Il peso passa sul piede avanti senza slittare di lato.",
+        "Il finish è in piedi, gluteo e addome attivi."
+      ],
+      faults: [
+        "Alzarsi all'impatto (early extension): il bacino va verso la palla e la colonna perde l'inclinazione.",
+        "Sway: il bacino scivola indietro nel backswing invece di ruotare.",
+        "Cercare la distanza solo con le braccia."
+      ]
+    }
+  },
+  {
+    id: "g2", sport: "golf", title: "Braccio guida e gomito del golfista", cat: "Controllo", level: "Base",
+    time: "8-10 min", zones: ["gomito", "polso"],
+    tactic: {
+      goal: "Colpire con il braccio guida disteso e il polso stabile, senza strappare di mani.",
+      target: "Contatto con la faccia del bastone quadrata, traiettoria prevedibile.",
+      steps: [
+        "Mezze swing con un ferro medio, presa morbida.",
+        "Fermati un attimo dopo l'impatto: il braccio guida è ancora disteso.",
+        "Serie da 8, poi pausa e scuoti le mani.",
+        "Solo se non c'è dolore al gomito."
+      ]
+    },
+    tech: {
+      chain: [
+        "Le gambe e il busto danno velocità, le mani accompagnano.",
+        "Polso guida quasi piatto all'impatto, non piegato di scatto.",
+        "Presa costante, senza stringere di più a fine swing.",
+        "I gomiti restano morbidi, non bloccati."
+      ],
+      faults: [
+        "Strappare con i polsi per cercare effetto.",
+        "Presa troppo stretta per tutto lo swing.",
+        "Continuare se compare dolore sul gomito interno del braccio guida."
+      ]
+    }
+  },
+  {
+    id: "sk1", sport: "sci", title: "Allineamento del ginocchio a secco", cat: "Pre-sciistica", level: "Base",
+    time: "10-12 min", zones: ["ginocchio", "anca"],
+    tactic: {
+      goal: "Tenere la rotula verso il secondo dito durante squat e affondi, come quando si carica lo scarpone in curva.",
+      target: "Ginocchio che non cede verso l'interno né in discesa né in atterraggio.",
+      steps: [
+        "Squat lento allo specchio o con il telefono di fronte, 8 ripetizioni.",
+        "Affondo in avanti, 6 per gamba, ginocchio sopra la caviglia.",
+        "Piccolo salto e atterraggio fermo su due piedi, poi su uno se è stabile.",
+        "Fermati se il ginocchio cade in dentro: meglio meno ripetizioni e più controllo."
+      ]
+    },
+    tech: {
+      chain: [
+        "Il piede resta intero a terra: tallone, base dell'alluce e del mignolo.",
+        "Il ginocchio segue il secondo dito, non cade all'interno.",
+        "Il bacino resta orizzontale, gluteo medio attivo.",
+        "Il busto è leggermente avanti, come per caricare la linguetta dello scarpone."
+      ],
+      faults: [
+        "Valgismo: ginocchia che si chiudono in discesa o in atterraggio.",
+        "Talloni che si staccano perché la caviglia non flette.",
+        "Busto dritto e seduta indietro, come su una sedia."
+      ]
+    }
+  },
+  {
+    id: "sk2", sport: "sci", title: "Caviglia nello scarpone", cat: "Mobilità", level: "Base",
+    time: "8 min", zones: ["caviglia", "achille"],
+    tactic: {
+      goal: "Riuscire a portare il ginocchio avanti senza sollevare il tallone, per caricare lo scarpone.",
+      target: "Dorsiflessione comoda, tallone a terra.",
+      steps: [
+        "Ginocchio verso il muro, tallone a terra, 8 per lato.",
+        "Affondo corto con il ginocchio che supera la punta solo quanto è comodo.",
+        "Tieni 20 secondi la posizione più lontana senza dolore.",
+        "Non forzare se senti un pizzico davanti alla caviglia."
+      ]
+    },
+    tech: {
+      chain: [
+        "Il movimento è della caviglia, non un crollo del ginocchio in dentro.",
+        "Il ginocchio va dritto verso il secondo dito.",
+        "Il piede non prona in modo eccessivo.",
+        "Il bacino resta stabile."
+      ],
+      faults: [
+        "Alzare il tallone per «arrivare» al muro.",
+        "Far cadere il ginocchio all'interno per guadagnare centimetri.",
+        "Spingere nel dolore."
+      ]
+    }
+  },
+  {
+    id: "kb1", sport: "kettlebell", title: "Swing: cerniera, non squat", cat: "Hardstyle", level: "Base",
+    time: "10-12 min", zones: ["lombare", "anca"],
+    tactic: {
+      goal: "Far partire lo swing dall'anca, con la schiena neutra e la chiusura in plank verticale.",
+      target: "La ghiria fluttua in avanti; in alto glutei e addome sono contratti e il corpo è verticale.",
+      steps: [
+        "Dieci cerniere a vuoto con le mani sulle anche, bacino indietro.",
+        "Dieci swing a due mani con un peso che controlli bene.",
+        "Ogni chiusura: fermati un attimo in piedi, glutei stretti, senza piegarti indietro.",
+        "Se la schiena si inarca, alleggerisci il peso e torna alla cerniera a vuoto."
+      ]
+    },
+    tech: {
+      chain: [
+        "Le ginocchia si piegano poco: è una cerniera d'anca, non uno squat.",
+        "Il bacino va indietro a caricare glutei e ischiocrurali.",
+        "Le braccia sono funi: non sollevano la ghiria.",
+        "In alto il corpo è una tavola verticale, non un ponte all'indietro."
+      ],
+      faults: [
+        "Trasformare lo swing in uno squat (ginocchia che vanno molto avanti).",
+        "Chiudere in iperestensione lombare invece di contrarre i glutei.",
+        "Tirare di spalle o lasciare che la ghisa sbatta sull'avambraccio."
+      ]
+    }
+  },
+  {
+    id: "kb2", sport: "kettlebell", title: "Lockout overhead lento", cat: "Stabilità", level: "Intermedio",
+    time: "8-10 min", zones: ["spalla", "lombare"],
+    tactic: {
+      goal: "Portare il peso sopra la testa con polso, gomito e spalla sulla stessa linea, senza inarcare la schiena.",
+      target: "Blocco verticale stabile, costole basse, glutei attivi.",
+      steps: [
+        "Da rack, distensione lenta a un braccio, 5 per lato, peso leggero.",
+        "In alto fermati 2 secondi: guarda che il polso sia dritto.",
+        "Se le costole si aprono, riduci il peso.",
+        "Abbina una serie di halo lenti come riscaldamento della spalla."
+      ]
+    },
+    tech: {
+      chain: [
+        "La spalla resta «in tasca» (packed), non sale verso l'orecchio.",
+        "Il polso è neutro, la campana appoggiata sull'avambraccio.",
+        "Glutei e addome tengono la colonna mentre il braccio sale.",
+        "La traiettoria è vicina al corpo, non un arco largo in avanti."
+      ],
+      faults: [
+        "Inarcare la schiena per far passare il peso.",
+        "Gomito che si piega o che punta in fuori senza controllo.",
+        "Spingere con uno slancio delle gambe quando vuoi una military press."
+      ]
+    }
   }
 
 ];
@@ -1111,6 +1286,54 @@ const VIDEO_SHOTS = {
       "Ginocchio allineato al piede",
       "Busto sopra il piede d'appoggio",
       "Ripartenza con spinta del piede esterno" ] }
+  ],
+  golf: [
+    { id: "swing", label: "Full swing (di lato)", kind: "golf_swing", view: "side", checklist: [
+      "Inclinazione del busto simile dall'address all'impatto",
+      "Il bacino ruota, non scivola verso la palla",
+      "Braccio guida disteso all'impatto, polso stabile",
+      "Peso che arriva sul piede avanti nel finish",
+      "Finish in equilibrio, senza cadere indietro" ] }
+  ],
+  sci: [
+    { id: "lunge", label: "Affondo / atterraggio (di fronte)", kind: "landing", view: "front", checklist: [
+      "Ginocchio verso il secondo dito, non verso l'interno",
+      "Bacino orizzontale",
+      "Piede intero a terra",
+      "Busto leggermente avanti",
+      "Atterraggio fermo e silenzioso" ] },
+    { id: "squat", label: "Squat a secco (di lato)", kind: "squat", view: "side", checklist: [
+      "Caviglia che flette, tallone a terra",
+      "Ginocchio che avanza senza dolore",
+      "Schiena neutra",
+      "Peso al centro del piede",
+      "Risalita senza che il ginocchio ceda in dentro" ] }
+  ],
+  kettlebell: [
+    { id: "swing", label: "Hardstyle swing", kind: "hinge", view: "side", checklist: [
+      "Il bacino va indietro, le ginocchia si piegano poco",
+      "Schiena neutra in basso",
+      "Le braccia non sollevano la ghiria",
+      "In alto il corpo è verticale, glutei contratti",
+      "Niente inarcamento della zona lombare in chiusura" ] },
+    { id: "tgu", label: "Turkish get-up", kind: "hinge", view: "side", rules: { kneeFlexAtHingeMax: 160 }, checklist: [
+      "Braccio verticale per tutto il movimento, polso dritto",
+      "Sguardo sulla campana fino all'affondo",
+      "Passaggi uno alla volta: gomito, mano, ponte, ginocchio, in piedi",
+      "Spalla bassa, non verso l'orecchio",
+      "Nessun crollo del gomito" ] },
+    { id: "clean", label: "Clean e rack", kind: "hinge", view: "side", checklist: [
+      "La ghiria sale vicina al corpo",
+      "La mano infila la maniglia prima del contatto",
+      "Gomito basso, vicino al busto, in rack",
+      "Polso neutro, non piegato all'indietro",
+      "Niente colpo secco sull'avambraccio" ] },
+    { id: "press", label: "Military press", kind: "hinge", view: "side", rules: { kneeFlexAtHingeMax: 160 }, checklist: [
+      "Parte da ferma, senza spinta delle gambe",
+      "Glutei e addome contratti",
+      "Costole basse, schiena che non si inarca",
+      "Polso dritto sopra il gomito in alto",
+      "Discesa controllata fino al rack" ] }
   ]
 };
 
@@ -1140,6 +1363,9 @@ const VIDEO_RULES = {
     run_front: { valgusMax: 0.08, trunkLeanMax: 15 },                    // valgus: spostamento interno del ginocchio / lunghezza gamba
     squat:     { kneeFlexMin: 70, trunkLeanMax: 50 },
     landing:   { valgusMax: 0.08 },                                     // ripresa frontale: si valuta solo l'allineamento delle ginocchia
-    decel:     { kneeFlexMin: 30, trunkLeanMax: 40 }
+    decel:     { kneeFlexMin: 30, trunkLeanMax: 40 },
+    /* finestre indicative per il suggerimento a video, non misure cliniche */
+    golf_swing:{ trunkLeanMin: 25, trunkLeanMax: 55, elbowImpactMin: 140 },
+    hinge:     { kneeFlexAtHingeMax: 70, trunkLeanMax: 70 }
   }
 };
