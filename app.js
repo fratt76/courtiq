@@ -29,7 +29,8 @@ function setRangeFill(inp) { const p = (inp.value - inp.min) / (inp.max - inp.mi
 const KEY = "courtiq.v1";
 const DEFAULT = () => ({
   mode: "player", sport: "tennis", sessions: [], draftPains: {}, boards: {},
-  hideRisky: true, drillSport: "all", athletes: null, lastRoutine: null
+  hideRisky: true, drillSport: "all", athletes: null, lastRoutine: null,
+  prev: null, prevSess: null, prevLog: [], recLog: [], therapy: []
 });
 let S = load();
 function load() {
@@ -117,7 +118,7 @@ function go(tab) {
   render(tab); window.scrollTo(0, 0);
 }
 function render(tab = TAB) {
-  ({ oggi: S.mode === "coach" ? renderCoach : renderToday, corpo: renderBody, drill: renderDrills, lavagna: renderBoard, recupero: renderRecovery, video: renderVideo })[tab]();
+  ({ oggi: S.mode === "coach" ? renderCoach : renderToday, corpo: renderBody, drill: renderDrills, lavagna: renderBoard, recupero: renderRecovery, prevenzione: renderPrevention, video: renderVideo })[tab]();
 }
 function setMode(m) {
   S.mode = m; save();
@@ -181,6 +182,7 @@ function renderToday() {
   const recent = info.sorted.slice(0, 8);
   v.innerHTML = `
     ${alertsHTML(info)}
+    ${pvPainActionsCard(info, true)}
     <div class="card" id="checkin"><div class="row between"><h2>Check-in post sessione</h2><span class="pill acc">20 sec</span></div>
       ${sportChips(CK.sport, "ck-sport")}
       <label class="lbl">Durata <b id="ck-dur-v">${CK.dur} min</b></label>
@@ -223,6 +225,7 @@ function renderToday() {
   bindChips(v, "ck-sport", val => { CK.sport = val; S.sport = val; save(); $("#ck-km-wrap").hidden = val !== "running"; });
   $("#ck-km").oninput = e => CK.km = e.target.value;
   $("#ck-body").onclick = () => go("corpo");
+  pvBindPainActions(v);
   $("#ck-date").onchange = e => { CK.date = e.target.value; upd(); };
   $("#ck-notes").oninput = e => CK.notes = e.target.value;
   $("#ck-save").onclick = () => {
@@ -382,11 +385,13 @@ function renderBody() {
       <div class="bodywrap">${bodySVG(S.draftPains)}</div>
       <div class="chips" style="margin-top:8px">${draft.map(([z, p]) => `<button type="button" class="chip on" data-zone="${z}">${esc(ZONES[z].label)} · ${p.sev}/10 · ${esc(p.type)}</button>`).join("") || `<span class="small mut">Nessun fastidio selezionato.</span>`}</div>
       <div class="btns" style="margin-top:12px"><button type="button" class="btn pri" id="to-ck">Vai al check-in</button>${draft.length ? `<button type="button" class="btn ghost" id="clr-p">Azzera</button>` : ""}</div></div>
+    ${pvPainActionsCard(info, false)}
     ${info.persistent.length ? `<div class="alert red"><span>⚠️</span><div><b>Fastidi persistenti</b><br>${info.persistent.map(z => esc(ZONES[z].label)).join(", ")} segnalati nelle ultime 3 sessioni.</div></div>` : ""}
     <div class="card"><h3>Ultimi 30 giorni</h3>${Object.keys(hist).length ? `<ul class="list">${Object.entries(hist).sort((a, b) => b[1] - a[1]).map(([z, n]) => `<li><span class="dot" style="background:var(--yellow)"></span><div class="grow"><div class="t">${esc(ZONES[z].label)}</div><div class="s">segnalato in ${n} session${n === 1 ? "e" : "i"}</div></div></li>`).join("")}</ul>` : `<div class="empty">Nessun fastidio registrato.</div>`}</div>
     ${DISCLAIMER}`;
   $$("[data-zone]", v).forEach(g => { g.onclick = () => painSheet(g.dataset.zone); g.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); painSheet(g.dataset.zone); } }; });
   $("#to-ck").onclick = () => go("oggi");
+  pvBindPainActions(v);
   $("#clr-p") && ($("#clr-p").onclick = () => { S.draftPains = {}; save(); renderBody(); });
 }
 function painSheet(z) {
@@ -400,7 +405,8 @@ function painSheet(z) {
     <div class="btns" style="margin-top:16px"><button type="button" class="btn pri" id="ps-ok" style="flex:1">Salva</button>${S.draftPains[z] ? `<button type="button" class="btn danger" id="ps-rm">Rimuovi</button>` : ""}</div>`, r => {
     const inp = $("#ps", r);
     const upd = () => { setRangeFill(inp); $("#ps-v", r).textContent = inp.value + "/10";
-      $("#ps-warn", r).innerHTML = (+inp.value >= 7 || type === "Fitta") ? `<div class="alert red" style="margin-top:12px"><span>⚠️</span><div>Con un dolore forte o a fitta è meglio fermarsi e sentire un professionista sanitario.</div></div>` : ""; };
+      $("#ps-warn", r).innerHTML = (+inp.value >= 7 || type === "Fitta") ? `<div class="alert red" style="margin-top:12px"><span>⚠️</span><div>Con un dolore forte o a fitta è meglio fermarsi e sentire un professionista sanitario.<br><button type="button" class="btn sm" id="ps-th" style="margin-top:8px">Salva e prenota un terapista</button></div></div>` : "";
+      $("#ps-th", r) && ($("#ps-th", r).onclick = () => { S.draftPains[z] = { sev: +inp.value, type }; save(); closeSheet(); pvOpenTherapist(z); }); };
     inp.oninput = upd; bindChips(r, "ptype", x => { type = x; upd(); }); upd();
     $("#ps-ok", r).onclick = () => { S.draftPains[z] = { sev: +inp.value, type }; save(); closeSheet(); renderBody(); };
     $("#ps-rm", r) && ($("#ps-rm", r).onclick = () => { delete S.draftPains[z]; save(); closeSheet(); renderBody(); });
@@ -668,11 +674,16 @@ function renderRecovery() {
         <p class="small" id="tm-d" style="text-align:center;min-height:2.6em">${esc(r.steps[TM.i]?.d || "Routine completata. Ottimo lavoro!")}</p>
         <div class="tctrl"><button type="button" class="btn" id="tm-prev" aria-label="Precedente">⏮</button><button type="button" class="btn pri play" id="tm-play">${TM.run ? "Pausa" : "Avvia"}</button><button type="button" class="btn" id="tm-next" aria-label="Successivo">⏭</button><button type="button" class="btn" id="tm-rst" aria-label="Ricomincia">↺</button></div></div>
       <ol class="list steps" style="margin-top:12px">${r.steps.map((s, k) => `<li class="${k === TM.i ? "cur" : k < TM.i ? "done" : ""}" data-step="${k}"><span class="num">${k + 1}</span><div class="grow"><div class="t">${esc(s.n)}</div><div class="s">${esc(s.d)}</div></div><span class="small mut">${s.s}s</span></li>`).join("")}</ol></div>
+    <div class="card pvlink"><div class="row between"><h3>Prevenzione completa</h3><span class="pill acc">20-60 min</span></div>
+      <p class="small mut">Queste routine durano pochi minuti. Per una sessione lunga di mobilità, rinforzo e rilassamento, o per un recovery dedicato a un fastidio, apri la sezione Prevenzione.</p>
+      <div class="btns"><button type="button" class="btn sm pri" id="to-pv">Apri Prevenzione</button><button type="button" class="btn sm ghost" id="to-pvrec">Recovery per un fastidio</button></div></div>
     <div class="card"><h3>Altre routine</h3><ul class="list">
       ${[gen].concat(ROUTINES).map(x => `<li><div class="grow"><div class="t">${esc(x.title)}${x.gen ? ' <span class="pill acc">consigliata</span>' : ""}</div><div class="s">${esc(x.kind || "Su misura")} · ${Math.round(x.steps.reduce((a, s) => a + s.s, 0) / 60)} min${x.zones?.length ? " · " + x.zones.map(z => esc(GROUP_LABELS[z])).join(", ") : ""}</div></div>
         <button type="button" class="btn sm" data-rt="${x.id}">${TM.r.id === x.id && TM.r.title === x.title ? "In corso" : "Scegli"}</button></li>`).join("")}</ul></div>
     ${DISCLAIMER}`;
   $("#tm-play").onclick = () => { TM.run ? pause() : play(); };
+  $("#to-pv").onclick = () => { PV.tab = "sessione"; go("prevenzione"); };
+  $("#to-pvrec").onclick = () => pvOpenRecovery(null);
   $("#tm-next").onclick = () => step(1); $("#tm-prev").onclick = () => step(-1);
   $("#tm-rst").onclick = () => { pause(); loadRoutine(TM.r, true); };
   $$("[data-step]", v).forEach(li => li.onclick = () => { TM.i = +li.dataset.step; TM.rem = TM.r.steps[TM.i].s; renderRecovery(); });
@@ -687,6 +698,7 @@ function paintTimer() {
 }
 function play() {
   if (TM.i >= TM.r.steps.length) loadRoutine(TM.r, false);
+  if (PT.run) ptPause();
   TM.run = true; TM.last = performance.now(); beep(660);
   wakeLock(true);
   TM.h = setInterval(() => {

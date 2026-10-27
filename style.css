@@ -267,3 +267,38 @@ details.data summary{cursor:pointer;color:var(--mut);font-size:.9rem;padding:6px
 .vsbs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
 .vsbs video{width:100%;border-radius:10px;background:#000;max-height:46vh}
 .tabs button span{white-space:nowrap}
+
+/* ===== Prevenzione (v6) ===== */
+.tabs button{font-size:.64rem;margin:0 1px;min-width:0;letter-spacing:-.01em}
+.tabs svg{width:22px;height:22px}
+.seg.small-seg button{padding:8px 4px;font-size:.78rem;line-height:1.15}
+label.check{display:flex;gap:10px;align-items:flex-start;font-size:.88rem;margin:12px 0 4px;cursor:pointer}
+label.check input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:var(--acc)}
+.pvblock{margin-top:14px}
+.pvblock h4{margin:6px 0;font-size:.9rem;text-transform:uppercase;letter-spacing:.05em}
+.pvlist li{align-items:flex-start}
+.pvlist details{flex:1;min-width:0}
+.pvlist summary{list-style:none;cursor:pointer;display:flex;min-height:40px;align-items:center}
+.pvlist summary::-webkit-details-marker{display:none}
+.pvlist summary .grow{display:flex;flex-direction:column}
+.pvlist .t{font-weight:600}
+.pvlist .s{font-size:.82rem;color:var(--mut)}
+.ptbar{height:6px;border-radius:99px;background:#22345a;margin-top:10px;overflow:hidden}
+.ptbar div{height:100%;background:var(--acc);transition:width .3s}
+.pt .ringwrap .fgc.rest{stroke:var(--acc2)}
+.pt .ringwrap .fgc.prep{stroke:var(--yellow)}
+.ptdesc{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;width:100%}
+.pt .tctrl .btn{min-width:56px}
+ul.rules{margin:6px 0 10px;padding-left:20px;font-size:.88rem}
+ul.rules li{margin:4px 0}
+.list.flags li{padding:4px 0}
+.list.flags label.check{margin:4px 0}
+.dotm{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:4px;background:var(--mut)}
+.dotm.red{background:var(--red)} .dotm.yellow{background:var(--yellow)} .dotm.green{background:var(--green)}
+.threq{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px;background:var(--bg2)}
+.threq a.btn{text-decoration:none;color:inherit}
+.field.sm{min-height:40px;width:auto;flex:1;padding:6px 10px}
+.pvact{flex-wrap:nowrap}
+#th-hist-prev{margin:4px 0;padding-left:18px;color:var(--mut)}
+#pv-eq .chip[disabled]{opacity:1;cursor:default}
+.tabs button{flex:1 1 auto;padding:0 1px}

@@ -1,6 +1,6 @@
 /* CourtIQ service worker: l'app funziona anche offline */
-const CACHE = "courtiq-v5";
-const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./data.js", "./video.js", "./manifest.json",
+const CACHE = "courtiq-v6";
+const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./data.js", "./video.js", "./prevenzione.js", "./prevenzione-data.js", "./manifest.json",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

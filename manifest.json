@@ -1,7 +1,7 @@
 {
   "name": "CourtIQ · Tennis · Pickleball · Padel · Running",
   "short_name": "CourtIQ",
-  "description": "Tattica, carichi di allenamento, recupero e video del colpo per Tennis, Pickleball, Padel, Running e Preparazione atletica.",
+  "description": "Tattica, carichi di allenamento, recupero, prevenzione e video del colpo per Tennis, Pickleball, Padel, Running e Preparazione atletica.",
   "lang": "it",
   "start_url": "./index.html",
   "scope": "./",
