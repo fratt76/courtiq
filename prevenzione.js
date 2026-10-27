@@ -16,7 +16,10 @@ const PV_SPORT_KEY = {
   padel:      ["p20", "p30", "p01", "p17", "p63", "p47", "p06", "p14"],
   pickleball: ["p20", "p30", "pb3", "p63", "p88", "pa2", "p25", "p01"],
   running:    ["pa2", "pa4", "pa3", "p46", "p88", "p60", "pa6", "p66"],
-  atletica:   ["p80", "p82", "p45", "p40", "p44", "pa1", "p93", "p11"]
+  atletica:   ["p80", "p82", "p45", "p40", "p44", "pa1", "p93", "p11"],
+  golf:       ["m03", "m05", "m06", "p40", "p45", "p20", "m14", "p41"],
+  sci:        ["p80", "p60", "m21", "pa2", "p46", "p45", "m16", "p82"],
+  kettlebell: ["p66", "p45", "p40", "m06", "p06", "p41", "m28", "p60"]
 };
 /* varianti dello stesso esercizio: al massimo una per sessione */
 const PV_FAM = {
@@ -278,7 +281,8 @@ function pvSessionHTML(info) {
   const c = pvCfg(); const sess = S.prevSess;
   const eqSet = new Set(c.eq);
   const riskTxt = info.riskyGroups.map(g => GROUP_LABELS[g].toLowerCase()).join(", ");
-  let out = `<div class="card"><div class="row between"><h2>Prevenzione</h2><span class="pill acc">${PV_EX.length} esercizi</span></div>
+  let out = `${typeof kqLongevityBlock === "function" ? kqLongevityBlock(c.sport) : ""}<div class="card"><div class="row between"><h2>Prevenzione</h2><span class="pill acc">${PV_EX.length} esercizi</span></div>
+    <p class="small mut">Le schede da 15-30 minuti qui sopra sono i protocolli dello sport selezionato. Sotto restano le sessioni lunghe da 20 a 60 minuti.</p>
     <p class="small mut">Sessioni da 20 a 60 minuti con tre blocchi: <b>mobilizzazione</b>, <b>potenziamento</b> e <b>rilassamento</b>. Scegli le opzioni e genera la tua sessione: ogni volta puoi ottenere una variante diversa.</p>
     <label class="lbl">Sport</label>${sportChips(c.sport, "pv-sport")}
     <label class="lbl">Durata</label><div class="seg full" data-pvseg="dur">${PV_DURS.map(d => `<button type="button" class="${c.dur === d ? "on" : ""}" data-val="${d}">${d} min</button>`).join("")}</div>
@@ -309,7 +313,7 @@ function pvSessionHTML(info) {
 }
 function pvSessionBind(v, info) {
   const c = pvCfg();
-  bindChips(v, "pv-sport", x => { c.sport = x; save(); });
+  bindChips(v, "pv-sport", x => { c.sport = x; S.sport = x; save(); if (typeof kqRenderSportBar === "function") kqRenderSportBar(); renderPrevention(); });
   $$("[data-pvseg]", v).forEach(g => $$("button", g).forEach(b => b.onclick = () => {
     $$("button", g).forEach(x => x.classList.toggle("on", x === b));
     const k = g.dataset.pvseg; c[k] = k === "mix" ? b.dataset.val : +b.dataset.val; save();
@@ -323,6 +327,7 @@ function pvSessionBind(v, info) {
   $("#pv-avoid", v).onchange = e => { c.avoid = e.target.checked; save(); };
   const gen = () => { c.eq = c.eq.filter(x => x !== "none"); S.prevSess = pvGenerate(c, (Math.random() * 2 ** 31) | 0, info.riskyGroups); save(); renderPrevention(); $("#pv-sess")?.scrollIntoView({ block: "start" }); };
   $("#pv-gen", v).onclick = gen;
+  if (typeof kqBindLongevity === "function") kqBindLongevity(v);
   const sess = S.prevSess; if (!sess) return;
   $("#pv-var", v).onclick = () => { const cc = { ...sess.cfg }; S.prevSess = pvGenerate(cc, (Math.random() * 2 ** 31) | 0, info.riskyGroups); save(); renderPrevention(); toast("Nuova variante pronta"); };
   $("#pv-start", v).onclick = () => { ptBuild(pvItems(sess), "prev", `Prevenzione ${SPORTS[sess.cfg.sport]}`, { sport: sess.cfg.sport, level: sess.cfg.level }); renderPrevention(); window.scrollTo(0, 0); ptPlay(); };
@@ -330,7 +335,7 @@ function pvSessionBind(v, info) {
   $$("[data-swap]", v).forEach(b => b.onclick = () => { const [bl, k] = b.dataset.swap.split(":"); if (pvReplace(sess, bl, +k)) { save(); renderPrevention(); toast("Esercizio sostituito"); } else toast("Nessuna alternativa disponibile"); });
 }
 function pvSessionText(sess) {
-  const L = [`CourtIQ · Prevenzione ${SPORTS[sess.cfg.sport]} · ${PV_LEVELS[sess.cfg.level]} · circa ${Math.round(pvTotal(pvItems(sess)) / 60)} min`];
+  const L = [`KinetIQ · Prevenzione ${SPORTS[sess.cfg.sport]} · ${PV_LEVELS[sess.cfg.level]} · circa ${Math.round(pvTotal(pvItems(sess)) / 60)} min`];
   for (const b of ["mob", "pot", "ril"]) { if (!sess.blocks[b].length) continue; L.push("", PV_BLOCKS[b].label.toUpperCase());
     sess.blocks[b].forEach((it, k) => { const ex = PV_BYID[it.id]; L.push(`${k + 1}. ${ex.n}: ${pvDoseTxt(it)}`, `   ${ex.d}`); }); }
   L.push("", "Indicazioni generali di allenamento: fermati se compare dolore.");
@@ -409,7 +414,7 @@ function pvTherapyText(q) {
     `Zona: ${q.zone ? ZONES[q.zone]?.label : "da valutare"}`, `Intensità attuale del fastidio: ${q.sev}/10`,
     `Preferenza: ${q.date ? fmtDate(q.date) : "data da concordare"}${q.slot && q.slot !== "Indifferente" ? ", " + q.slot.toLowerCase() : ""}`];
   if (q.notes) L.push(`Note: ${q.notes}`);
-  if (q.hist) { L.push("", "Storico fastidi (ultimi 60 giorni, da CourtIQ):"); const h = q.histLines || []; h.length ? h.forEach(x => L.push("- " + x)) : L.push("- nessun fastidio registrato"); }
+  if (q.hist) { L.push("", "Storico fastidi (ultimi 60 giorni, da KinetIQ):"); const h = q.histLines || []; h.length ? h.forEach(x => L.push("- " + x)) : L.push("- nessun fastidio registrato"); }
   L.push("", "Grazie.");
   return L.join("\n");
 }
@@ -478,15 +483,20 @@ function pvTherapistBind(v) {
 }
 
 /* ---------- card da usare nelle altre sezioni ---------- */
+function pvNeedsSpec(z, p, info) {
+  return !!(p && (p.sev > 5 || p.type === "Fitta" || info.persistent.includes(z) || (info.persistentDays || []).includes(z)));
+}
 function pvPainActionsCard(info, compact) {
   const act = pvRecZones(info);
   if (!act.length) return "";
   return `<div class="card" id="pv-pains"><div class="row between"><h3>Fastidi: cosa fare</h3><span class="pill acc">Recovery</span></div>
-    <ul class="list">${act.slice(0, compact ? 3 : 9).map(([z, p]) => { const tr = pvTriage(z, p, info);
-      return `<li><div class="grow"><div class="t">${esc(ZONES[z].label)} · ${p.sev}/10</div><div class="s"><span class="pill ${tr.pill}">${esc(tr.tag)}</span></div></div>
-        <div class="btns pvact">${tr.lv === "stop" ? "" : `<button type="button" class="btn sm" data-pvrec="${z}">Recovery</button>`}<button type="button" class="btn sm ${tr.lv === "stop" || tr.lv === "pro" ? "pri" : "ghost"}" data-pvth="${z}">Terapista</button></div></li>`; }).join("")}</ul></div>`;
+    <ul class="list">${act.slice(0, compact ? 3 : 9).map(([z, p]) => { const tr = pvTriage(z, p, info); const spec = pvNeedsSpec(z, p, info);
+      return `<li><div class="grow"><div class="t">${esc(ZONES[z].label)} · ${p.sev}/10</div><div class="s"><span class="pill ${tr.pill}">${esc(tr.tag)}</span>${spec ? ` <span class="pill red">Consigliato controllo specialistico</span>` : ""}</div></div>
+        <div class="btns pvact">${tr.lv === "stop" ? "" : `<button type="button" class="btn sm" data-pvrec="${z}">Recovery</button>`}<button type="button" class="btn sm ${tr.lv === "stop" || tr.lv === "pro" || spec ? "pri" : "ghost"}" data-pvth="${z}">Terapista</button>${spec ? `<button type="button" class="btn sm" data-pvwa="${z}">WhatsApp</button>` : ""}</div></li>`; }).join("")}</ul>
+    <p class="small mut">Il recovery e la richiesta al terapista restano disponibili. Il tasto WhatsApp prepara un riepilogo per uno specialista della tua rete: l'app non invia nulla da sola.</p></div>`;
 }
 function pvBindPainActions(root) {
   $$("[data-pvrec]", root).forEach(b => b.onclick = () => pvOpenRecovery(b.dataset.pvrec));
   $$("[data-pvth]", root).forEach(b => b.onclick = () => pvOpenTherapist(b.dataset.pvth));
+  $$("[data-pvwa]", root).forEach(b => b.onclick = () => kqContactSpec(b.dataset.pvwa));
 }

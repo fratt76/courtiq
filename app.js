@@ -1,4 +1,5 @@
-/* CourtIQ - logica dell'app (Giocatore + Coach). Nessun server: i dati restano sul dispositivo. */
+/* KinetIQ - logica dell'app (Giocatore + Coach). Nessun server: i dati restano sul dispositivo.
+   La chiave localStorage resta courtiq.v1 di proposito: così le sessioni già salvate non si perdono. */
 "use strict";
 
 /* ================= utilità ================= */
@@ -13,11 +14,12 @@ const today = () => isoDay(Date.now());
 const dayNum = s => { const [y, m, d] = s.split("-").map(Number); return Math.round(new Date(y, m - 1, d).getTime() / DAY); };
 const fmtDate = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d).toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "short" }); };
 const fmtTime = s => `${Math.floor(s / 60)}:${pad2(Math.max(0, Math.ceil(s)) % 60)}`;
-const SPORT_IDS = Object.keys(SPORTS);              // tennis, pickleball, padel, running, atletica
+const SPORT_IDS = Object.keys(SPORTS);
 const isCourt = sp => COURT_SPORTS.includes(sp);
-const SPORT_ICON = { tennis: "🎾", pickleball: "🏓", padel: "🥎", running: "🏃", atletica: "🏋️" };
+const SPORT_ICON = { tennis: "🎾", pickleball: "🏓", padel: "🥎", running: "🏃", atletica: "🏋️", golf: "⛳", sci: "⛷️", kettlebell: "🔔" };
 const LEVELS = ["Base", "Intermedio"];
-const RPE_LABELS = ["", "Molto leggero", "Leggero", "Moderato", "Abbastanza impegnativo", "Impegnativo", "Impegnativo +", "Molto impegnativo", "Molto impegnativo +", "Quasi massimale", "Massimale"];
+/* Foster CR-10, descrizioni in italiano. Il numero salvato resta 1-10, come nelle sessioni già registrate. */
+const RPE_LABELS = ["", "Molto leggero", "Leggero", "Moderato", "Un po' duro", "Duro", "Duro, sopra il comodo", "Molto duro", "Molto duro, poche ripetizioni ancora", "Quasi massimale", "Massimale"];
 
 function toast(msg) {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
@@ -30,11 +32,21 @@ const KEY = "courtiq.v1";
 const DEFAULT = () => ({
   mode: "player", sport: "tennis", sessions: [], draftPains: {}, boards: {},
   hideRisky: true, drillSport: "all", athletes: null, lastRoutine: null,
-  prev: null, prevSess: null, prevLog: [], recLog: [], therapy: []
+  prev: null, prevSess: null, prevLog: [], recLog: [], therapy: [],
+  specialists: [], fb: { vibe: true, voice: true, tone: true }
 });
 let S = load();
 function load() {
-  try { const o = JSON.parse(localStorage.getItem(KEY)); if (o && typeof o === "object") return Object.assign(DEFAULT(), o); } catch (e) { }
+  try {
+    const o = JSON.parse(localStorage.getItem(KEY));
+    if (o && typeof o === "object") {
+      const s = Object.assign(DEFAULT(), o);
+      s.fb = Object.assign({ vibe: true, voice: true, tone: true }, o.fb || {});
+      if (!Array.isArray(s.specialists)) s.specialists = [];
+      if (!Array.isArray(s.sessions)) s.sessions = [];
+      return s;
+    }
+  } catch (e) { }
   return DEFAULT();
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast("Spazio di archiviazione pieno"); } }
@@ -71,6 +83,12 @@ function analyze(sessions, draft = {}) {
     const l3 = sorted.slice(0, 3).map(s => new Set((s.pains || []).map(p => p.zone)));
     for (const z of l3[0]) if (l3[1].has(z) && l3[2].has(z)) persistent.push(z);
   }
+  const daySets = {};
+  for (const s of sessions) {
+    if (t - dayNum(s.date) > 14 || t - dayNum(s.date) < 0) continue;
+    for (const p of s.pains || []) (daySets[p.zone] ||= new Set()).add(s.date);
+  }
+  const persistentDays = Object.keys(daySets).filter(z => daySets[z].size >= 2);
   const groups = {};   // gruppo -> severità max
   for (const [z, p] of Object.entries(active)) { const g = ZONES[z]?.group; if (g) groups[g] = Math.max(groups[g] || 0, p.sev); }
   const riskyGroups = Object.keys(groups).filter(g => groups[g] >= 3);
@@ -81,7 +99,7 @@ function analyze(sessions, draft = {}) {
   const strong = Object.entries(active).filter(([, p]) => p.sev >= 7 || p.type === "Fitta");
   if (strong.length) alerts.push({ lv: "red", t: "Dolore forte o a fitta", d: `${strong.map(([z]) => ZONES[z].label).join(", ")}: fermati e consulta un medico o un fisioterapista prima di riprendere.` });
   if (riskyGroups.length && !strong.length) alerts.push({ lv: "yellow", t: "Drill filtrati", d: `I drill che sollecitano ${riskyGroups.map(g => GROUP_LABELS[g].toLowerCase()).join(", ")} sono segnalati o nascosti finché il fastidio non scende sotto 3/10.` });
-  return { acute, chronic, ratio, rawRatio, insufficient, zone, daily, historyDays, active, groups, riskyGroups, persistent, alerts, last, sorted };
+  return { acute, chronic, ratio, rawRatio, insufficient, zone, daily, historyDays, active, groups, riskyGroups, persistent, persistentDays, alerts, last, sorted };
 }
 const ZONE_TXT = { green: ["Zona ideale", "green"], yellow: ["Attenzione", "yellow"], red: ["Sovraccarico", "red"], low: ["Carico basso", "grey"], none: ["Dati insufficienti", "grey"] };
 
@@ -111,14 +129,31 @@ function buildRoutine(info) {
 
 /* ================= navigazione ================= */
 let TAB = "oggi";
+const PARENT = { oggi: "oggi", drill: "campo", lavagna: "campo", tecnica: "campo", video: "video", studio: "video", corpo: "salute", recupero: "salute", prevenzione: "salute", rete: "rete" };
+const LASTC = { campo: "drill", salute: "corpo", video: "video", rete: "rete", oggi: "oggi" };
 function go(tab) {
+  if (!PARENT[tab]) tab = "oggi";
   TAB = tab;
-  $$(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+  LASTC[PARENT[tab]] = tab;
+  $$(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === PARENT[tab]));
   $$(".view").forEach(v => v.classList.toggle("active", v.id === "view-" + tab));
+  if (typeof kqStopAnims === "function") kqStopAnims();
   render(tab); window.scrollTo(0, 0);
 }
+function goParent(p) { go(LASTC[p] || p); }
 function render(tab = TAB) {
-  ({ oggi: S.mode === "coach" ? renderCoach : renderToday, corpo: renderBody, drill: renderDrills, lavagna: renderBoard, recupero: renderRecovery, prevenzione: renderPrevention, video: renderVideo })[tab]();
+  if (typeof kqStopAnims === "function") kqStopAnims();
+  if (typeof kqRenderSportBar === "function") kqRenderSportBar();
+  if (typeof kqRenderSubnav === "function") kqRenderSubnav();
+  const fn = {
+    oggi: S.mode === "coach" ? renderCoach : renderToday,
+    corpo: renderBody, drill: renderDrills, lavagna: renderBoard, tecnica: kqRenderTecnica,
+    recupero: renderRecovery, prevenzione: renderPrevention, video: renderVideo,
+    studio: kqRenderStudio, rete: kqRenderRete
+  }[tab] || renderToday;
+  fn();
+  if (typeof kqGaugeKick === "function") kqGaugeKick();
+  if (tab === "tecnica" && S.sport === "kettlebell") kqStartKbAnim();
 }
 function setMode(m) {
   S.mode = m; save();
@@ -147,13 +182,12 @@ function bindChips(root, name, cb) {
   });
 }
 function gaugeSVG(ratio, zone) {
-  const v = ratio == null ? 0 : Math.min(ratio, 2) / 2;
-  const a = Math.PI * (1 - v), x = 60 + 48 * Math.cos(a), y = 60 - 48 * Math.sin(a);
   const col = { green: "var(--green)", yellow: "var(--yellow)", red: "var(--red)", low: "var(--blue)", none: "var(--mut)" }[zone];
   const arc = (f, t, c) => { const a1 = Math.PI * (1 - f), a2 = Math.PI * (1 - t);
-    return `<path d="M${60 + 48 * Math.cos(a1)} ${60 - 48 * Math.sin(a1)} A48 48 0 0 1 ${60 + 48 * Math.cos(a2)} ${60 - 48 * Math.sin(a2)}" stroke="${c}" stroke-width="10" fill="none" opacity=".35"/>`; };
-  return `<svg viewBox="0 0 120 70" class="gsvg">${arc(0, .4, "var(--blue)")}${arc(.4, .65, "var(--green)")}${arc(.65, .75, "var(--yellow)")}${arc(.75, 1, "var(--red)")}
-    ${ratio != null ? `<line x1="60" y1="60" x2="${x}" y2="${y}" stroke="${col}" stroke-width="4" stroke-linecap="round"/>` : ""}<circle cx="60" cy="60" r="5" fill="${col}"/></svg>`;
+    return `<path d="M${60 + 48 * Math.cos(a1)} ${64 - 48 * Math.sin(a1)} A48 48 0 0 1 ${60 + 48 * Math.cos(a2)} ${64 - 48 * Math.sin(a2)}" stroke="${c}" stroke-width="10" fill="none"/>`; };
+  const to = ratio == null ? "" : (180 - (Math.min(Math.max(ratio, 0), 2) / 2) * 180);
+  return `<svg viewBox="0 0 120 78" class="gsvg" aria-hidden="true">${arc(0, .4, "var(--blue)")}${arc(.4, .65, "var(--green)")}${arc(.65, .75, "var(--yellow)")}${arc(.75, 1, "var(--red)")}
+    <g class="needle" data-needle="1" data-to="${to}" transform="rotate(180 60 64)"><line x1="60" y1="64" x2="18" y2="64" stroke="${col}" stroke-width="3.5" stroke-linecap="round"/><circle cx="60" cy="64" r="5" fill="${col}"/></g></svg>`;
 }
 function acwrCard(info, title = "Carico di allenamento (ACWR)") {
   const [zl, zc] = ZONE_TXT[info.zone];
@@ -161,34 +195,40 @@ function acwrCard(info, title = "Carico di allenamento (ACWR)") {
     return `<div class="${i === 27 ? "today" : i >= 21 ? "wk" : ""}" style="height:${Math.max(3, v / mx * 100)}%" title="${v}"></div>`; }).join("");
   return `<div class="card"><div class="row between"><h3>${title}</h3><span class="pill ${zc}">${zl}</span></div>
     <div class="acwr"><div class="gauge">${gaugeSVG(info.ratio, info.zone)}<div class="val">${info.ratio == null ? "–" : info.ratio.toFixed(2)}</div></div>
-    <p class="small mut">${info.insufficient ? `<b class="z-none insuff">${INSUFF_TXT}</b><br>` : ""}Rapporto tra il carico degli ultimi 7 giorni e la media settimanale dell'ultimo mese. Zona ideale: 0,8-1,3. Sopra 1,5 il rischio di sovraccarico aumenta.
+    <p class="small mut">${info.insufficient ? `<b class="z-none insuff">${INSUFF_TXT}</b><br>` : ""}Acuto = somma di minuti × RPE degli ultimi 7 giorni. Cronico = la stessa somma su 28 giorni, divisa per 4. ACWR = acuto ÷ cronico. Verde 0,8–1,3, giallo 1,3–1,5, rosso sopra 1,5.
     ${!info.insufficient && info.historyDays < 21 ? "<br><b>Servono almeno 3-4 settimane di dati per un valore affidabile.</b>" : ""}</p></div>
-    <div class="kpis"><div class="kpi"><b>${info.acute}</b><span>Carico 7 gg</span></div><div class="kpi"><b>${Math.round(info.chronic)}</b><span>Media sett. 28 gg</span></div>
+    <div class="kpis"><div class="kpi"><b>${info.acute}</b><span>Acuto 7 gg</span></div><div class="kpi"><b>${Math.round(info.chronic)}</b><span>Cronico (media sett.)</span></div>
     <div class="kpi"><b>${Object.keys(info.active).length}</b><span>Fastidi attivi</span></div></div>
     <div class="bars">${bars}</div><div class="legend"><span>28 giorni fa</span><span>ultimi 7 gg</span><span>oggi</span></div></div>`;
 }
 function alertsHTML(info) {
   return info.alerts.map(a => `<div class="alert ${a.lv}"><span>${a.lv === "red" ? "⚠️" : "ℹ️"}</span><div><b>${esc(a.t)}</b><br>${esc(a.d)}</div></div>`).join("");
 }
-const DISCLAIMER = `<div class="disclaimer"><span>⚕️</span><span>CourtIQ dà indicazioni generali di allenamento, non è un dispositivo medico. In caso di dolore forte, persistente o dopo un trauma, rivolgiti a un medico o a un fisioterapista.</span></div>`;
+const DISCLAIMER = `<div class="disclaimer"><span>⚕️</span><span>KinetIQ non sostituisce il medico, il fisioterapista o il coach. È un supporto con indicazioni generali: non fa diagnosi e non prescrive cure. Se il dolore è forte, dura da più giorni o arriva dopo un trauma, fermati e rivolgiti a un professionista.</span></div>`;
 
 /* ================= OGGI (giocatore) ================= */
-let CK = { sport: null, dur: 60, rpe: 6, date: null, notes: "", km: "" };
+let CK = { sport: null, dur: 60, rpe: 6, date: null, notes: "", km: "", custom: false };
 const paceTxt = (km, min) => { const p = min * 60 / km; return `${Math.floor(p / 60)}:${pad2(Math.round(p % 60) % 60)}/km`; };
 function renderToday() {
   const v = $("#view-oggi"); const info = analyze(S.sessions, S.draftPains);
-  CK.sport = CK.sport || S.sport; CK.date = CK.date || today();
+  CK.sport = S.sport || CK.sport || "tennis"; CK.date = CK.date || today();
+  const presets = DUR_PRESETS[CK.sport] || [30, 60, 90, 120];
+  if (!CK.custom && !presets.includes(CK.dur)) CK.dur = presets[1] || presets[0];
   const draft = Object.entries(S.draftPains);
   const recent = info.sorted.slice(0, 8);
   v.innerHTML = `
+    ${kqPrematchHTML(info)}
     ${alertsHTML(info)}
+    ${kqSpecBanner(info)}
     ${pvPainActionsCard(info, true)}
-    <div class="card" id="checkin"><div class="row between"><h2>Check-in post sessione</h2><span class="pill acc">20 sec</span></div>
-      ${sportChips(CK.sport, "ck-sport")}
+    <div class="card" id="checkin"><div class="row between"><h2>Registra sessione</h2><span class="pill acc">2 tocchi</span></div>
+      <p class="small mut">Foster: carico = minuti × sforzo percepito. Nessun collegamento ad altre app. Lo sport è quello scelto nella barra in alto.</p>
       <label class="lbl">Durata <b id="ck-dur-v">${CK.dur} min</b></label>
-      <input type="range" id="ck-dur" min="15" max="180" step="5" value="${CK.dur}"><div class="ticks"><span>15</span><span>60</span><span>120</span><span>180</span></div>
+      <div class="dur-grid" id="ck-durs">${presets.map(m => `<button type="button" class="${!CK.custom && CK.dur === m ? "on" : ""}" data-dur="${m}">${m} min</button>`).join("")}<button type="button" class="${CK.custom ? "on" : ""}" data-dur="altro">Altro</button></div>
+      <div id="ck-custom" ${CK.custom ? "" : "hidden"}><input type="range" id="ck-dur" min="10" max="300" step="5" value="${CK.dur}"><div class="ticks"><span>10</span><span>60</span><span>180</span><span>300</span></div></div>
       <label class="lbl">Sforzo percepito (RPE) <b id="ck-rpe-v">${CK.rpe}</b></label>
-      <input type="range" id="ck-rpe" min="1" max="10" step="1" value="${CK.rpe}"><div class="ticks"><span>1 leggero</span><span id="ck-rpe-l">${RPE_LABELS[CK.rpe]}</span><span>10 massimo</span></div>
+      <div class="rpe-grid" id="ck-rpes">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => `<button type="button" class="${CK.rpe === n ? "on" : ""}" data-rpe="${n}">${n}</button>`).join("")}</div>
+      <p class="rpe-desc" id="ck-rpe-l">${esc(RPE_LABELS[CK.rpe])}</p>
       <div id="ck-km-wrap" ${CK.sport === "running" ? "" : "hidden"}><label class="lbl" for="ck-km">Distanza in km (facoltativa)</label>
         <input type="number" class="field" id="ck-km" min="0" max="300" step="0.1" inputmode="decimal" placeholder="es. 8" value="${esc(CK.km)}"></div>
       <div class="loadbox"><div><div class="small mut">Carico della sessione</div><b id="ck-load">${CK.dur * CK.rpe}</b> <span class="small mut">UA</span></div>
@@ -213,24 +253,30 @@ function renderToday() {
       <div class="btns"><button type="button" class="btn sm" id="exp">Esporta (JSON)</button><label class="btn sm">Importa<input type="file" id="imp" accept="application/json" hidden></label>
       <button type="button" class="btn sm" id="demo2">Dati di esempio</button><button type="button" class="btn sm danger" id="wipe">Cancella tutto</button></div></details>`;
 
-  const dur = $("#ck-dur"), rpe = $("#ck-rpe");
   const upd = () => {
-    CK.dur = +dur.value; CK.rpe = +rpe.value; setRangeFill(dur); setRangeFill(rpe);
+    const dur = $("#ck-dur"); if (dur) { CK.dur = +dur.value; setRangeFill(dur); }
     $("#ck-dur-v").textContent = CK.dur + " min"; $("#ck-rpe-v").textContent = CK.rpe; $("#ck-rpe-l").textContent = RPE_LABELS[CK.rpe];
     $("#ck-load").textContent = CK.dur * CK.rpe;
     const p = analyze(S.sessions.concat([{ date: $("#ck-date")?.value || today(), dur: CK.dur, rpe: CK.rpe, pains: [] }]));
     $("#ck-proj").innerHTML = p.insufficient ? `<span class="z-none insuff">${INSUFF_TXT}</span>` : p.ratio == null ? "" : `ACWR dopo il salvataggio<br><b class="z-${p.zone}">${p.ratio.toFixed(2)}</b> · ${ZONE_TXT[p.zone][0]}`;
   };
-  dur.oninput = upd; rpe.oninput = upd; upd();
-  bindChips(v, "ck-sport", val => { CK.sport = val; S.sport = val; save(); $("#ck-km-wrap").hidden = val !== "running"; });
+  $$("[data-dur]", v).forEach(b => b.onclick = () => {
+    if (b.dataset.dur === "altro") { CK.custom = true; }
+    else { CK.custom = false; CK.dur = +b.dataset.dur; }
+    renderToday();
+  });
+  $$("[data-rpe]", v).forEach(b => b.onclick = () => { CK.rpe = +b.dataset.rpe; $$("[data-rpe]", v).forEach(x => x.classList.toggle("on", x === b)); upd(); });
+  const dur = $("#ck-dur"); if (dur) dur.oninput = upd;
+  upd();
+  kqBindPrematch(v, info); kqBindSpec(v);
   $("#ck-km").oninput = e => CK.km = e.target.value;
   $("#ck-body").onclick = () => go("corpo");
   pvBindPainActions(v);
   $("#ck-date").onchange = e => { CK.date = e.target.value; upd(); };
   $("#ck-notes").oninput = e => CK.notes = e.target.value;
   $("#ck-save").onclick = () => {
-    const pains = Object.entries(S.draftPains).map(([zone, p]) => ({ zone, sev: p.sev, type: p.type }));
-    const ses = { id: uid(), ts: Date.now(), date: CK.date || today(), sport: CK.sport, dur: CK.dur, rpe: CK.rpe, notes: CK.notes.trim(), pains };
+    const pains = Object.entries(S.draftPains).map(([zone, p]) => { const o = { zone, sev: p.sev, type: p.type }; if (p.ctx && Object.keys(p.ctx).length) o.ctx = p.ctx; return o; });
+    const ses = { id: uid(), ts: Date.now(), date: CK.date || today(), sport: S.sport || CK.sport, dur: CK.dur, rpe: CK.rpe, notes: CK.notes.trim(), pains };
     const km = parseFloat(String(CK.km).replace(",", "."));
     if (CK.sport === "running" && km > 0) ses.km = Math.round(km * 100) / 100;
     S.sessions.push(ses);
@@ -241,9 +287,10 @@ function renderToday() {
   };
   $$("[data-del]", v).forEach(b => b.onclick = () => { if (confirm("Eliminare questa sessione?")) { S.sessions = S.sessions.filter(s => s.id !== b.dataset.del); save(); renderToday(); } });
   [$("#demo"), $("#demo2")].forEach(b => b && (b.onclick = () => { if (!S.sessions.length || confirm("Sostituire le tue sessioni con dati di esempio?")) { S.sessions = demoSessions(1); save(); renderToday(); toast("Dati di esempio caricati"); } }));
-  $("#exp").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" })); a.download = `courtiq-${today()}.json`; a.click(); };
+  $("#exp").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" })); a.download = `kinetiq-${today()}.json`; a.click(); };
   $("#imp").onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const o = JSON.parse(t); if (!Array.isArray(o.sessions)) throw 0; S = Object.assign(DEFAULT(), o); save(); setMode(S.mode); toast("Dati importati"); } catch (_) { toast("File non valido"); } }); };
-  $("#wipe").onclick = () => { if (confirm("Cancellare tutti i dati di CourtIQ su questo dispositivo?")) { S = DEFAULT(); save(); setMode("player"); toast("Dati cancellati"); } };
+  $("#wipe").onclick = () => { if (confirm("Cancellare tutti i dati di KinetIQ su questo dispositivo?")) { S = DEFAULT(); save(); setMode("player"); toast("Dati cancellati"); } };
+  kqGaugeKick();
 }
 
 /* dati di esempio deterministici */
@@ -341,7 +388,7 @@ function athleteSheet(id) {
   });
 }
 function athleteText(a, i) {
-  const L = [`CourtIQ · scheda per ${a.name}`, `Sport: ${SPORTS[a.sport]}`, `ACWR: ${i.ratio == null ? "dati insufficienti" : i.ratio.toFixed(2) + " (" + ZONE_TXT[i.zone][0] + ")"}`];
+  const L = [`KinetIQ · scheda per ${a.name}`, `Sport: ${SPORTS[a.sport]}`, `ACWR: ${i.ratio == null ? "dati insufficienti" : i.ratio.toFixed(2) + " (" + ZONE_TXT[i.zone][0] + ")"}`];
   if (Object.keys(i.active).length) L.push("Fastidi: " + Object.entries(i.active).map(([z, p]) => `${ZONES[z].label} ${p.sev}/10`).join(", "));
   for (const x of a.assigned) {
     L.push("", `${x.kind}: ${x.title}`);
@@ -362,15 +409,17 @@ const HOT = {
   spalla_dx: [64, 94], spalla_sx: [136, 94], gomito_dx: [50, 150], gomito_sx: [150, 150], polso_dx: [40, 200], polso_sx: [160, 200],
   lombare: [100, 182], anca_dx: [72, 210], anca_sx: [128, 210], tibia_dx: [84, 314], tibia_sx: [116, 314], ginocchio_dx: [84, 284], ginocchio_sx: [116, 284], achille_dx: [86, 344], achille_sx: [114, 344], caviglia_dx: [82, 370], caviglia_sx: [118, 370]
 };
-function bodySVG(pains) {
+function bodySVG(pains, focus) {
   const sil = `<g class="sil">
     <circle cx="100" cy="40" r="20"/><rect x="92" y="58" width="16" height="14" rx="4"/>
     <path d="M68 78 Q100 70 132 78 Q142 82 140 100 L132 150 Q128 175 124 205 L76 205 Q72 175 68 150 L60 100 Q58 82 68 78Z"/>
     <path class="limb" d="M64 92 L52 150 L42 202"/><path class="limb" d="M136 92 L148 150 L158 202"/>
     <path class="limb thick" d="M86 210 L84 284 L84 368"/><path class="limb thick" d="M114 210 L116 284 L116 368"/>
     <ellipse cx="80" cy="380" rx="12" ry="6"/><ellipse cx="120" cy="380" rx="12" ry="6"/></g>`;
-  const hots = Object.entries(HOT).map(([z, [x, y]]) => { const p = pains[z]; const c = p ? (p.sev >= 7 ? "pain" : p.sev >= 3 ? "mid" : "low") : "";
-    return `<g class="hot ${c} ${p && p.sev >= 7 ? "pulse" : ""}" data-zone="${z}" role="button" tabindex="0" aria-label="${esc(ZONES[z].label)}${p ? ", fastidio " + p.sev : ""}">
+  const focusSet = new Set(focus || []);
+  const hots = Object.entries(HOT).map(([z, [x, y]]) => { const p = pains[z]; const c = p ? (p.sev >= 7 || p.sev > 5 ? "pain" : p.sev >= 3 ? "mid" : "low") : "";
+    const hi = !p && focusSet.has(ZONES[z].group) ? "focus" : "";
+    return `<g class="hot ${c} ${hi} ${p && (p.sev >= 7 || p.sev > 5) ? "pulse" : ""}" data-zone="${z}" role="button" tabindex="0" aria-label="${esc(ZONES[z].label)}${p ? ", fastidio " + p.sev : ""}">
       <circle class="ring" cx="${x}" cy="${y}" r="13"/><circle class="core" cx="${x}" cy="${y}" r="${p ? 8 : 4}"/>${p ? `<text x="${x}" y="${y + 3}">${p.sev}</text>` : ""}</g>`; }).join("");
   return `<svg id="bodysvg" viewBox="0 0 200 400" aria-label="Mappa del corpo">${sil}<text class="side" x="24" y="20">DX</text><text class="side" x="176" y="20">SX</text>${hots}</svg>`;
 }
@@ -380,10 +429,13 @@ function renderBody() {
   // conteggio storico per zona (ultimi 30 giorni)
   const t = dayNum(today()), hist = {};
   for (const s of S.sessions) if (t - dayNum(s.date) <= 30) for (const p of s.pains || []) hist[p.zone] = (hist[p.zone] || 0) + 1;
+  const bio = SPORT_BIO[S.sport] || SPORT_BIO.tennis;
+  const specChip = (z, p) => (p.sev > 5 || info.persistent.includes(z) || (info.persistentDays || []).includes(z)) ? ` <span class="pill red">Consigliato controllo specialistico</span>` : "";
   v.innerHTML = `
-    <div class="card"><h2>Dove senti fastidio?</h2><p class="small mut">Tocca un punto sulla silhouette (vista frontale) e indica l'intensità. I fastidi verranno salvati con il prossimo check-in.</p>
-      <div class="bodywrap">${bodySVG(S.draftPains)}</div>
-      <div class="chips" style="margin-top:8px">${draft.map(([z, p]) => `<button type="button" class="chip on" data-zone="${z}">${esc(ZONES[z].label)} · ${p.sev}/10 · ${esc(p.type)}</button>`).join("") || `<span class="small mut">Nessun fastidio selezionato.</span>`}</div>
+    ${kqSpecBanner(info)}
+    <div class="card"><h2>Dove senti fastidio?</h2><p class="small mut">Tocca un punto (vista frontale). Per ${esc(SPORTS[S.sport] || "")} le zone più sollecitate sono evidenziate: è un riferimento dello sport, non una diagnosi. I fastidi si salvano con la prossima sessione.</p>
+      <div class="bodywrap">${bodySVG(S.draftPains, bio.zones)}</div>
+      <div class="chips" style="margin-top:8px">${draft.map(([z, p]) => `<button type="button" class="chip on" data-zone="${z}">${esc(ZONES[z].label)} · ${p.sev}/10 · ${esc(p.type)}${specChip(z, p)}</button>`).join("") || `<span class="small mut">Nessun fastidio selezionato.</span>`}</div>
       <div class="btns" style="margin-top:12px"><button type="button" class="btn pri" id="to-ck">Vai al check-in</button>${draft.length ? `<button type="button" class="btn ghost" id="clr-p">Azzera</button>` : ""}</div></div>
     ${pvPainActionsCard(info, false)}
     ${info.persistent.length ? `<div class="alert red"><span>⚠️</span><div><b>Fastidi persistenti</b><br>${info.persistent.map(z => esc(ZONES[z].label)).join(", ")} segnalati nelle ultime 3 sessioni.</div></div>` : ""}
@@ -391,24 +443,38 @@ function renderBody() {
     ${DISCLAIMER}`;
   $$("[data-zone]", v).forEach(g => { g.onclick = () => painSheet(g.dataset.zone); g.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); painSheet(g.dataset.zone); } }; });
   $("#to-ck").onclick = () => go("oggi");
-  pvBindPainActions(v);
+  pvBindPainActions(v); kqBindSpec(v);
   $("#clr-p") && ($("#clr-p").onclick = () => { S.draftPains = {}; save(); renderBody(); });
 }
 function painSheet(z) {
-  const cur = S.draftPains[z] || { sev: 3, type: PAIN_TYPES[0] }; let type = cur.type;
+  const cur = S.draftPains[z] || { sev: 3, type: PAIN_TYPES[0], ctx: {} }; let type = cur.type;
+  const ctx = Object.assign({}, cur.ctx);
+  const qs = kqPainQuestions(S.sport);
   openSheet(`<h2>${esc(ZONES[z].label)}</h2>
     <label class="lbl">Intensità del fastidio <b id="ps-v">${cur.sev}/10</b></label>
     <input type="range" id="ps" min="1" max="10" value="${cur.sev}"><div class="ticks"><span>1 lieve</span><span>5</span><span>10 forte</span></div>
     <label class="lbl">Tipo di sensazione</label>
     <div class="chips" data-group="ptype">${PAIN_TYPES.map(p => `<button type="button" class="chip ${p === type ? "on" : ""}" data-val="${esc(p)}">${esc(p)}</button>`).join("")}</div>
+    ${qs.map(q => `<label class="lbl">${esc(q.q)}</label><div class="chips" data-group="ctx-${q.id}">${q.opts.map(o => `<button type="button" class="chip ${ctx[q.id] === o ? "on" : ""}" data-val="${esc(o)}">${esc(o)}</button>`).join("")}</div>`).join("")}
     <div id="ps-warn"></div>
     <div class="btns" style="margin-top:16px"><button type="button" class="btn pri" id="ps-ok" style="flex:1">Salva</button>${S.draftPains[z] ? `<button type="button" class="btn danger" id="ps-rm">Rimuovi</button>` : ""}</div>`, r => {
     const inp = $("#ps", r);
+    const pack = () => ({ sev: +inp.value, type, ctx: Object.assign({}, ctx) });
     const upd = () => { setRangeFill(inp); $("#ps-v", r).textContent = inp.value + "/10";
-      $("#ps-warn", r).innerHTML = (+inp.value >= 7 || type === "Fitta") ? `<div class="alert red" style="margin-top:12px"><span>⚠️</span><div>Con un dolore forte o a fitta è meglio fermarsi e sentire un professionista sanitario.<br><button type="button" class="btn sm" id="ps-th" style="margin-top:8px">Salva e prenota un terapista</button></div></div>` : "";
-      $("#ps-th", r) && ($("#ps-th", r).onclick = () => { S.draftPains[z] = { sev: +inp.value, type }; save(); closeSheet(); pvOpenTherapist(z); }); };
-    inp.oninput = upd; bindChips(r, "ptype", x => { type = x; upd(); }); upd();
-    $("#ps-ok", r).onclick = () => { S.draftPains[z] = { sev: +inp.value, type }; save(); closeSheet(); renderBody(); };
+      const info = analyze(S.sessions, Object.assign({}, S.draftPains, { [z]: pack() }));
+      const spec = +inp.value > 5 || type === "Fitta" || info.persistent.includes(z) || (info.persistentDays || []).includes(z);
+      const strong = +inp.value >= 7 || type === "Fitta";
+      const why = type === "Fitta" ? "Un dolore a fitta: meglio fermarsi e sentire un professionista." : +inp.value >= 7 ? "Intensità alta: meglio fermarsi e sentire un professionista." : "Il fastidio è sopra 5/10 oppure torna da più giorni.";
+      $("#ps-warn", r).innerHTML = spec ? `<div class="alert red" style="margin-top:12px"><span>⚠️</span><div><b>Consigliato controllo specialistico.</b><br>${why}<br>
+        <button type="button" class="btn sm pri" id="ps-wa" style="margin-top:8px">WhatsApp con riepilogo</button>
+        ${strong ? `<button type="button" class="btn sm" id="ps-th" style="margin-top:8px">Salva e prenota un terapista</button>` : ""}</div></div>` : "";
+      $("#ps-wa", r) && ($("#ps-wa", r).onclick = () => { S.draftPains[z] = pack(); save(); closeSheet(); kqContactSpec(z); });
+      $("#ps-th", r) && ($("#ps-th", r).onclick = () => { S.draftPains[z] = pack(); save(); closeSheet(); pvOpenTherapist(z); });
+    };
+    inp.oninput = upd; bindChips(r, "ptype", x => { type = x; upd(); });
+    qs.forEach(q => bindChips(r, "ctx-" + q.id, x => { ctx[q.id] = x; }));
+    upd();
+    $("#ps-ok", r).onclick = () => { S.draftPains[z] = pack(); save(); closeSheet(); renderBody(); };
     $("#ps-rm", r) && ($("#ps-rm", r).onclick = () => { delete S.draftPains[z]; save(); closeSheet(); renderBody(); });
   });
 }
@@ -526,11 +592,18 @@ function bindPlanner(v) {
     const pool = DRILLS.filter(d => d.sport === PL.sport && LEVELS.indexOf(d.level) <= LEVELS.indexOf(PL.level));
     const pick = pool.filter(d => d.cat === PL.focus).concat(pool.filter(d => d.cat !== PL.focus)).slice(0, 3);
     pick.sort((a, b) => LEVELS.indexOf(a.level) - LEVELS.indexOf(b.level));
-    const final = PL.sport === "running" ? ["15 min", "Corsa facile", "Corsa facile a ritmo di conversazione"] : PL.sport === "atletica" ? ["15 min", "Circuito", "Circuito a stazioni sugli schemi della seduta"] : ["15 min", "Gioco guidato", "Punti a tema sull'obiettivo della lezione"];
+    const finals = {
+      running: ["15 min", "Corsa facile", "Corsa facile a ritmo di conversazione"],
+      atletica: ["15 min", "Circuito", "Circuito a stazioni sugli schemi della seduta"],
+      golf: ["15 min", "Swing a vuoto", "Serie lente sul punto chiave della lezione"],
+      sci: ["15 min", "Simulazione a secco", "Curve simulate con il ginocchio allineato"],
+      kettlebell: ["15 min", "Serie tecniche", "Ripetizioni lente sull'errore critico della lezione"]
+    };
+    const final = finals[PL.sport] || ["15 min", "Gioco guidato", "Punti a tema sull'obiettivo della lezione"];
     const plan = [["10 min", "Riscaldamento", ROUTINES[0].title], ...pick.map(d => ["10 min", "Drill", d.title]), final, ["5 min", "Defaticamento", ROUTINES.find(r => r.id === "r7").title]];
     $("#pl-out", v).innerHTML = `<ol class="list steps" style="margin-top:12px">${plan.map((p, k) => `<li><span class="num">${k + 1}</span><div class="grow"><div class="t">${esc(p[2])}</div><div class="s">${p[1]} · ${p[0]}</div></div></li>`).join("")}</ol>
       <button type="button" class="btn sm block" id="pl-copy">Copia piano</button>`;
-    $("#pl-copy", v).onclick = () => copyText([`CourtIQ · Piano lezione ${SPORTS[PL.sport]} · ${PL.level}${PL.focus ? " · " + PL.focus : ""}`, ...plan.map((p, k) => `${k + 1}. ${p[1]} (${p[0]}): ${p[2]}`)].join("\n"));
+    $("#pl-copy", v).onclick = () => copyText([`KinetIQ · Piano lezione ${SPORTS[PL.sport]} · ${PL.level}${PL.focus ? " · " + PL.focus : ""}`, ...plan.map((p, k) => `${k + 1}. ${p[1]} (${p[0]}): ${p[2]}`)].join("\n"));
   };
 }
 
@@ -606,12 +679,16 @@ function courtSVG(sport, board, mini = false) {
 let TOOL = "move", UNDO = [];
 function renderBoard() {
   const v = $("#view-lavagna");
-  const sport = isCourt(S.boardSport) ? S.boardSport : isCourt(S.sport) ? S.sport : "tennis";
-  if (!S.boards[sport]) S.boards[sport] = defaultBoard(sport);
+  const cand = [S.boardSport, S.sport].filter(Boolean);
+  let sport = cand.find(s => isCourt(s) || TACTICAL_SPORTS.includes(s)) || "tennis";
+  if (TACTICAL_SPORTS.includes(sport)) { S.boardSport = sport; kqRenderTactical(v, sport); return; }
+  if (!isCourt(sport)) sport = "tennis";
+  S.boardSport = sport;
+  if (!S.boards[sport] || S.boards[sport].tac) S.boards[sport] = defaultBoard(sport);
   const b = S.boards[sport];
   const tools = [["move", "✋ Sposta"], ["ball", "➶ Traiettoria palla"], ["move-arrow", "➜ Spostamento"], ["del", "🗑 Elimina"]];
   v.innerHTML = `
-    <div class="card tight"><div class="seg full" id="bs">${COURT_SPORTS.map(id => `<button type="button" class="${id === sport ? "on" : ""}" data-s="${id}">${SPORTS[id]}</button>`).join("")}</div>
+    <div class="card tight">${kqBoardBar(sport)}
       ${b.from ? `<p class="small mut" style="margin:8px 0 0">Schema: <b>${esc(b.from)}</b></p>` : ""}
       <div class="toolbar">${tools.map(([id, l]) => `<button type="button" class="chip ${TOOL === id ? "on" : ""}" data-tool="${id}">${l}</button>`).join("")}</div>
       <div class="toolbar"><button type="button" class="chip" data-add="p">+ Giocatore</button><button type="button" class="chip" data-add="o">+ Avversario</button><button type="button" class="chip" data-add="b">+ Palla</button><span class="sp"></span>
@@ -719,9 +796,15 @@ let WL = null;
 function wakeLock(on) { try { if (on && navigator.wakeLock && !WL) navigator.wakeLock.request("screen").then(l => WL = l).catch(() => { }); else if (!on && WL) { WL.release(); WL = null; } } catch (e) { } }
 
 /* ================= avvio ================= */
-$$(".tabs button").forEach(b => b.onclick = () => go(b.dataset.tab));
+$$(".tabs button").forEach(b => b.onclick = () => { const t = b.dataset.tab; (t === "campo" || t === "salute" || t === "video") ? goParent(t) : go(t); });
 $$(".mode button").forEach(b => b.onclick = () => setMode(b.dataset.mode));
 $("#sheet").addEventListener("click", e => { if (e.target.matches("[data-close]")) closeSheet(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
 setMode(S.mode);
+const splash = $("#splash");
+if (splash) {
+  const hide = () => { splash.hidden = true; try { sessionStorage.setItem("kinetiq.splash", "1"); } catch (e) { } };
+  try { if (sessionStorage.getItem("kinetiq.splash")) splash.hidden = true; } catch (e) { }
+  const goIn = $("#splash-go"); if (goIn) goIn.onclick = hide;
+}
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => { });

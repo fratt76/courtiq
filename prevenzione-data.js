@@ -30,7 +30,10 @@ const PV_SPORT_W = {
   pickleball: { spalla: 2, gomito: 3, polso: 2, lombare: 2, core: 2, anca: 2, ginocchio: 3, tibia: .5, achille: 2, caviglia: 3 },
   padel:      { spalla: 3, gomito: 3, polso: 2, lombare: 3, core: 2.5, anca: 2, ginocchio: 2.5, tibia: .5, achille: 2, caviglia: 2 },
   running:    { spalla: .3, gomito: .1, polso: .1, lombare: 1.5, core: 2, anca: 3, ginocchio: 3, tibia: 2.5, achille: 3, caviglia: 2.5 },
-  atletica:   { spalla: 2, gomito: 1.5, polso: 1.5, lombare: 2, core: 2, anca: 2, ginocchio: 2, tibia: 1.5, achille: 1.5, caviglia: 1.5 }
+  atletica:   { spalla: 2, gomito: 1.5, polso: 1.5, lombare: 2, core: 2, anca: 2, ginocchio: 2, tibia: 1.5, achille: 1.5, caviglia: 1.5 },
+  golf:       { spalla: 1.5, gomito: 2.5, polso: 2.5, lombare: 3, core: 3, anca: 2.5, ginocchio: 1.2, tibia: .3, achille: .6, caviglia: 1 },
+  sci:        { spalla: .4, gomito: .2, polso: .2, lombare: 2, core: 2, anca: 2.5, ginocchio: 3, tibia: 2, achille: 2, caviglia: 3 },
+  kettlebell: { spalla: 2.5, gomito: 1.5, polso: 2, lombare: 3, core: 3, anca: 3, ginocchio: 1.2, tibia: .4, achille: .8, caviglia: 1 }
 };
 
 const PV_EX = [

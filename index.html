@@ -4,24 +4,26 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1220">
-<meta name="description" content="CourtIQ: tattica, carichi, recupero, prevenzione e video per Tennis, Pickleball, Padel, Running e Preparazione atletica">
+<meta name="description" content="KinetIQ: longevità atletica e biomeccanica. Padel, tennis, pickleball, running, atletica, golf, sci e kettlebell. I dati restano sul telefono.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CourtIQ">
-<title>CourtIQ · Tennis · Pickleball · Padel</title>
+<meta name="apple-mobile-web-app-title" content="KinetIQ">
+<title>KinetIQ · Longevità Atletica &amp; Biomeccanica</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<div class="stickyhead">
 <header class="top">
   <div class="brand">
     <img src="icons/icon-192.png" alt="" class="logo">
     <div>
-      <h1>CourtIQ</h1>
-      <p class="sub">Tennis · Pickleball · Padel · Running · Atletica</p>
+      <h1>KinetIQ</h1>
+      <p class="payoff">Longevità Atletica &amp; Biomeccanica</p>
+      <p class="tagline">Muoviti meglio. Correggi il gesto. Non fermarti mai.</p>
     </div>
   </div>
   <div class="seg mode" role="group" aria-label="Modalità">
@@ -29,32 +31,34 @@
     <button type="button" data-mode="coach">Coach</button>
   </div>
 </header>
+<div id="sportbar" class="sportbar"></div>
+<div id="subnav" class="subnav" hidden></div>
+</div>
 
 <main id="main">
   <section id="view-oggi" class="view active" aria-label="Oggi"></section>
-  <section id="view-corpo" class="view" aria-label="Corpo"></section>
+  <section id="view-corpo" class="view" aria-label="Fastidi"></section>
   <section id="view-drill" class="view" aria-label="Drill"></section>
   <section id="view-lavagna" class="view" aria-label="Lavagna"></section>
+  <section id="view-tecnica" class="view" aria-label="Tecnica"></section>
   <section id="view-recupero" class="view" aria-label="Recupero"></section>
   <section id="view-prevenzione" class="view" aria-label="Prevenzione"></section>
   <section id="view-video" class="view" aria-label="Video"></section>
+  <section id="view-studio" class="view" aria-label="Studio scheletro"></section>
+  <section id="view-rete" class="view" aria-label="Rete specialisti"></section>
 </main>
 
 <nav class="tabs" aria-label="Navigazione">
-  <button type="button" data-tab="oggi" class="on">
+  <button type="button" data-tab="oggi" class="on" aria-label="Oggi">
     <svg viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg><span id="tab-oggi-label">Oggi</span></button>
-  <button type="button" data-tab="corpo">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.5"/><path d="M12 8v7m0 0-3 6m3-6 3 6M6 10.5l6-1.5 6 1.5"/></svg><span>Corpo</span></button>
-  <button type="button" data-tab="drill">
-    <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Drill</span></button>
-  <button type="button" data-tab="lavagna">
-    <svg viewBox="0 0 24 24"><rect x="5" y="2.5" width="14" height="19" rx="1"/><path d="M5 12h14M8.5 2.5v19m7-19v19"/></svg><span>Lavagna</span></button>
-  <button type="button" data-tab="recupero">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6"/></svg><span>Recupero</span></button>
-  <button type="button" data-tab="prevenzione">
-    <svg viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.5v6c0 4.6 3.1 8.6 7.5 10 4.4-1.4 7.5-5.4 7.5-10v-6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg><span>Prevenzione</span></button>
-  <button type="button" data-tab="video">
+  <button type="button" data-tab="campo" aria-label="Campo e tattica">
+    <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="1"/><path d="M5 12h14M12 3v18"/></svg><span>Campo</span></button>
+  <button type="button" data-tab="video" aria-label="Video e studio scheletro">
     <svg viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2"/><path d="m15.5 10.5 6-3.5v10l-6-3.5"/></svg><span>Video</span></button>
+  <button type="button" data-tab="salute" aria-label="Salute e corpo">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.2"/><path d="M12 8v6m0 0-3 6m3-6 3 6M7 11h10"/></svg><span>Salute</span></button>
+  <button type="button" data-tab="rete" aria-label="Rete specialisti">
+    <svg viewBox="0 0 24 24"><circle cx="8" cy="9" r="2.2"/><circle cx="16" cy="9" r="2.2"/><path d="M4.5 18c.6-2 2-3 3.5-3s2.9 1 3.5 3M12.5 18c.6-2 2-3 3.5-3s2.9 1 3.5 3"/></svg><span>Rete</span></button>
 </nav>
 
 <div id="sheet" class="sheet" hidden>
@@ -63,10 +67,21 @@
 </div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
+<div id="splash" class="splash">
+  <div class="splash-card">
+    <img src="icons/icon-192.png" alt="" width="72" height="72">
+    <h1>KinetIQ</h1>
+    <p class="payoff">Longevità Atletica &amp; Biomeccanica</p>
+    <p class="tagline">Muoviti meglio. Correggi il gesto. Non fermarti mai.</p>
+    <p class="small">Uno strumento tra te, il maestro e il terapista. Non sostituisce il medico, il fisioterapista o il coach.</p>
+    <button type="button" class="btn pri block" id="splash-go">Entra</button>
+  </div>
+</div>
 <script src="data.js"></script>
 <script src="prevenzione-data.js"></script>
 <script src="video.js"></script>
 <script src="prevenzione.js"></script>
+<script src="kinetiq.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

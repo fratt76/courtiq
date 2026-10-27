@@ -165,6 +165,26 @@ const CIQV = (() => {
       }
       if (rules.trunkLeanMax != null && metrics.trunkLean > rules.trunkLeanMax) chk(`Busto molto inclinato (circa ${r0(metrics.trunkLean)}°): prova a correre più alto, con l'inclinazione che parte dalle caviglie. Da verificare.`);
       else ok(`Inclinazione del busto contenuta (circa ${r0(metrics.trunkLean)}°).`);
+    } else if (kind === "golf_swing") {
+      const wrI = side === "L" ? P.lWr : P.rWr;
+      const sp = px.map((f, i) => i ? dist(f.p[wrI], px[i - 1].p[wrI]) / (M[i].torso || 1) / Math.max(1e-3, f.t - px[i - 1].t) : null);
+      const ss = smooth(sp, 1); let bi = 1;
+      for (let i = 1; i < ss.length; i++) if (ss[i] != null && (ss[bi] == null || ss[i] > ss[bi])) bi = i;
+      const m = M[bi]; impact = { i: bi, t: ts[bi] };
+      metrics.trunkLeanImpact = m.trunkLean; metrics.elbowImpact = m.elbow;
+      if (m.trunkLean < (rules.trunkLeanMin ?? 25)) chk(`Il busto all'impatto sembra poco inclinato (circa ${r0(m.trunkLean)}° sul piano dell'immagine): possibile early extension, da verificare con il maestro. Nello Studio trovi un preset dimostrativo, non una misura sul tuo corpo.`);
+      else if (rules.trunkLeanMax != null && m.trunkLean > rules.trunkLeanMax) chk(`Il busto sembra molto piegato (circa ${r0(m.trunkLean)}°): da verificare con il maestro.`);
+      else ok(`Inclinazione del busto presente all'impatto (circa ${r0(m.trunkLean)}°, stima 2D).`);
+      if (rules.elbowImpactMin != null && m.elbow < rules.elbowImpactMin) chk(`Braccio guida abbastanza piegato all'impatto (circa ${r0(m.elbow)}°): da verificare.`);
+      else if (m.elbow != null) ok(`Braccio abbastanza disteso all'impatto (circa ${r0(m.elbow)}°).`);
+    } else if (kind === "hinge") {
+      let hi = 0; M.forEach((m, i) => { if ((m.trunkLean || 0) > (M[hi].trunkLean || 0)) hi = i; });
+      metrics.trunkLeanHinge = M[hi].trunkLean; metrics.kneeFlexHinge = M[hi].kneeFlex; impact = { i: hi, t: ts[hi] };
+      const maxKnee = rules.kneeFlexAtHingeMax;
+      if (maxKnee != null && metrics.kneeFlexHinge != null && metrics.kneeFlexHinge > maxKnee) chk(`Nel punto più inclinato le ginocchia sono piegate circa ${r0(metrics.kneeFlexHinge)}°: il gesto sembra più uno squat che una cerniera d'anca. Da verificare. Il confronto con la chiusura corretta è nello Studio (preset dimostrativo).`);
+      else if (metrics.kneeFlexHinge != null) ok(`Nel punto basso le ginocchia restano relativamente distese (circa ${r0(metrics.kneeFlexHinge)}°): compatibile con una cerniera.`);
+      else chk("Ginocchia poco visibili: la cerniera non è stimabile. Riprendi di lato, corpo intero.");
+      chk("L'iperestensione lombare in chiusura non si misura in modo affidabile su un video 2D: controllala nello Studio scheletro o con il coach.");
     } else {
       /* di fronte la flessione del ginocchio non si misura sul piano dell'immagine: il punto più basso è dato dal bacino */
       const front = shot.view === "front";
@@ -203,7 +223,7 @@ function renderVideo() {
   const v = $("#view-video");
   VS.sport = VS.sport || S.sport || "tennis"; if (!VIDEO_SHOTS[VS.sport]) VS.sport = "tennis";
   if (!vShots().some(s => s.id === VS.shot)) VS.shot = vShots()[0].id;
-  if ($("#vd-root", v)) { paintChecklist(); return; }
+  if ($("#vd-root", v)) { paintSportShot(); paintChecklist(); return; }
   v.innerHTML = `<div id="vd-root">
     <div class="card"><div class="row between"><h2>Video del colpo</h2><span class="pill acc">sul telefono</span></div>
       <p class="small mut" style="margin-top:0">Registra o scegli un video breve (3-10 secondi). Il video resta sul telefono: non viene inviato da nessuna parte e non viene conservato quando chiudi l'app.</p>
@@ -353,9 +373,9 @@ function snapshot() {
   drawShapes(ctx, w, h, VS.shapes, sc);
   c.toBlob(async blob => {
     if (!blob) { toast("Impossibile salvare il fotogramma"); return; }
-    const name = `courtiq-colpo-${today()}-${fmtT(vid.currentTime).replace(/[:.]/g, "")}.png`;
+    const name = `kinetiq-colpo-${today()}-${fmtT(vid.currentTime).replace(/[:.]/g, "")}.png`;
     try { const file = new File([blob], name, { type: "image/png" });
-      if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) { await navigator.share({ files: [file], title: "CourtIQ" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) { await navigator.share({ files: [file], title: "KinetIQ" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("Fotogramma salvato");
   }, "image/png");
