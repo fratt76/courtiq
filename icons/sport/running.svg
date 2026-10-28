@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Running">
+  <title>Running</title>
+  <circle cx="15.2" cy="3.9" r="1.8"/>
+  <path d="M8.2 9.4 11 7.3h3.4l2.2 3.2 2.7.6"/>
+  <path d="M14.4 7.3 11.6 13l3.2 2.6-1.3 5.4"/>
+  <path d="M11.6 13l-2.2 3.4-4.4.4"/>
+</svg>

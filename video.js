@@ -210,7 +210,7 @@ window.CIQV = CIQV;
 
 /* ================= interfaccia ================= */
 const POSE_LINKS = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 29], [29, 31], [27, 31], [28, 30], [30, 32], [28, 32]];
-const VCOLORS = ["#c8f53a", "#f87171", "#60a5fa", "#fbbf24", "#ffffff"];
+const VCOLORS = ["#05f3fa", "#f87171", "#60a5fa", "#fbbf24", "#ffffff"];
 const VS = { sport: null, shot: null, url: null, name: "", tool: "none", color: VCOLORS[0], shapes: [], cur: null, res: null, skel: true, tsOff: 0, lm: null, busy: false,
   urlA: null, urlB: null, offB: 0 };
 const VIDEO_NOTE = "La revisione del video è un aiuto per autovalutarti: non sostituisce il maestro, il medico o il fisioterapista.";
@@ -223,7 +223,7 @@ function renderVideo() {
   const v = $("#view-video");
   VS.sport = VS.sport || S.sport || "tennis"; if (!VIDEO_SHOTS[VS.sport]) VS.sport = "tennis";
   if (!vShots().some(s => s.id === VS.shot)) VS.shot = vShots()[0].id;
-  if ($("#vd-root", v)) { paintSportShot(); paintChecklist(); return; }
+  if ($("#vd-root", v)) { paintSportShot(); paintChecklist(); if (VS.url) { KQM.fit = vFit; vFit(); } return; }
   v.innerHTML = `<div id="vd-root">
     <div class="card"><div class="row between"><h2>Video del colpo</h2><span class="pill acc">sul telefono</span></div>
       <p class="small mut" style="margin-top:0">Registra o scegli un video breve (3-10 secondi). Il video resta sul telefono: non viene inviato da nessuna parte e non viene conservato quando chiudi l'app.</p>
@@ -231,23 +231,24 @@ function renderVideo() {
       <div class="btns" style="margin-top:12px"><label class="btn pri">🎥 Registra<input type="file" id="vd-rec" accept="video/*" capture="environment" hidden></label>
         <label class="btn">🖼️ Dalla galleria<input type="file" id="vd-pick" accept="video/*" hidden></label></div>
       <p class="small mut" id="vd-tip" style="margin:10px 0 0"></p></div>
-    <div class="card" id="vd-player" hidden>
-      <div class="vstage" id="vd-stage"><video id="vd-v" playsinline muted preload="auto"></video><canvas id="vd-pose"></canvas><canvas id="vd-draw"></canvas></div>
-      <div class="row vtime"><input type="range" id="vd-seek" min="0" max="1000" value="0" aria-label="Posizione"><span id="vd-time" class="small mut">0:00.00</span></div>
-      <div class="vctl"><button type="button" class="btn sm" id="vd-fb" aria-label="Fotogramma indietro">⏮ −1</button><button type="button" class="btn sm pri" id="vd-play">▶ Play</button><button type="button" class="btn sm" id="vd-ff" aria-label="Fotogramma avanti">+1 ⏭</button></div>
-      <div class="seg full" id="vd-speed">${[0.25, 0.5, 1].map(r => `<button type="button" data-r="${r}" class="${r === 1 ? "on" : ""}">${String(r).replace(".", ",")}x</button>`).join("")}</div>
-      <div class="toolbar" id="vd-tools">${[["none", "👆 Nessuno"], ["line", "／ Linea"], ["angle", "∠ Angolo"], ["free", "✎ Mano libera"]].map(([id, l]) => `<button type="button" class="chip ${id === VS.tool ? "on" : ""}" data-dt="${id}">${l}</button>`).join("")}</div>
-      <div class="toolbar">${VCOLORS.map(c => `<button type="button" class="swatch ${c === VS.color ? "on" : ""}" data-col="${c}" style="background:${c}" aria-label="Colore ${c}"></button>`).join("")}<span class="sp"></span>
-        <button type="button" class="chip" id="vd-undo">↶</button><button type="button" class="chip" id="vd-clear">Pulisci</button></div>
-      <div class="btns"><button type="button" class="btn sm" id="vd-snap">📸 Salva fotogramma</button><label class="switch small" id="vd-skel-w" hidden><input type="checkbox" id="vd-skel" checked> Scheletro</label></div>
-      <p class="small mut" style="margin:8px 0 0">Metti in pausa e disegna sul fotogramma: linee, angoli con 3 tocchi (mostra i gradi) o a mano libera.</p></div>
+    <div class="vwrap stick" id="vd-player" hidden>
+      <div class="vstage" id="vd-stage"><video id="vd-v" playsinline muted preload="auto"></video><canvas id="vd-pose"></canvas><canvas id="vd-draw"></canvas></div></div>
+    ${kqDockHTML("vd-dock", `<div class="dock-row vseek"><input type="range" id="vd-seek" min="0" max="1000" value="0" aria-label="Posizione nel video"><span id="vd-time" class="small mut">0:00.00</span></div>
+      <div class="dock-row vtr"><button type="button" class="btn sm icon" id="vd-fb" aria-label="Fotogramma indietro" title="Fotogramma indietro">⏮</button><button type="button" class="btn sm pri icon" id="vd-play" aria-label="Riproduci" title="Riproduci">▶</button><button type="button" class="btn sm icon" id="vd-ff" aria-label="Fotogramma avanti" title="Fotogramma avanti">⏭</button><span class="vsep"></span>
+        <span id="vd-tools" class="vtools">${[["none", "👆", "Nessuno strumento"], ["line", "／", "Linea"], ["angle", "∠", "Angolo"], ["free", "✎", "Mano libera"]].map(([id, g, l]) => `<button type="button" class="chip icon ${id === VS.tool ? "on" : ""}" data-dt="${id}" aria-label="${l}" aria-pressed="${id === VS.tool}" title="${l}">${g}</button>`).join("")}</span></div>`,
+    `<h4 class="dock-t">Velocità</h4><div class="seg full" id="vd-speed">${[0.25, 0.5, 1].map(r => `<button type="button" data-r="${r}" class="${r === 1 ? "on" : ""}">${String(r).replace(".", ",")}x</button>`).join("")}</div>
+      <h4 class="dock-t">Colore del disegno</h4><div class="toolbar" style="margin:0">${VCOLORS.map(c => `<button type="button" class="swatch ${c === VS.color ? "on" : ""}" data-col="${c}" style="background:${c}" aria-label="Colore ${c}"></button>`).join("")}<span class="sp"></span>
+        <button type="button" class="chip" id="vd-undo" aria-label="Annulla ultimo segno">↶ Annulla</button><button type="button" class="chip" id="vd-clear">Pulisci</button></div>
+      <div class="btns" style="margin-top:10px"><button type="button" class="btn sm" id="vd-snap">📸 Salva fotogramma</button><label class="switch small" id="vd-skel-w" hidden><input type="checkbox" id="vd-skel" checked> Scheletro</label></div>
+      <p class="small mut" style="margin:8px 0 0">Metti in pausa e disegna sul fotogramma: linee, angoli con 3 tocchi (mostra i gradi) o a mano libera.</p>
+      <div id="vd-extra"></div>`)}
     <div class="card" id="vd-an"><div class="row between"><h3>Analisi automatica</h3><span class="pill">sperimentale</span></div>
       <div class="alert yellow"><span>⚠️</span><div>${AN_NOTE}</div></div>
       <button type="button" class="btn pri block" id="vd-an-go" disabled>Analizza il video</button>
       <p class="small mut" id="vd-an-prog" style="margin:8px 0 0">Carica un video per iniziare. La prima analisi scarica il modello (circa 20 MB), poi funziona anche offline.</p>
       <div id="vd-an-out"></div></div>
     <div class="card" id="vd-check"></div>
-    <div class="card"><h3>Confronto affiancato</h3><p class="small mut" style="margin-top:0">Due video (ad esempio prima e dopo) riprodotti insieme. Per allinearli porta ciascun video al momento del colpo con la sua barra, poi tocca «Allinea qui».</p>
+    <div class="card" id="vd-sbs-card"><h3>Confronto affiancato</h3><p class="small mut" style="margin-top:0">Due video (ad esempio prima e dopo) riprodotti insieme. Per allinearli porta ciascun video al momento del colpo con la sua barra, poi tocca «Allinea qui».</p>
       <div class="btns"><label class="btn sm">Video A<input type="file" id="vd-a" accept="video/*" hidden></label><label class="btn sm">Video B<input type="file" id="vd-b" accept="video/*" hidden></label></div>
       <div class="vsbs" id="vd-sbs" hidden><video id="vd-va" playsinline muted controls preload="auto"></video><video id="vd-vb" playsinline muted controls preload="auto"></video></div>
       <div id="vd-sbs-ctl" hidden><div class="vctl"><button type="button" class="btn sm" id="vd-s-fb">⏮ −1</button><button type="button" class="btn sm pri" id="vd-s-play">▶ Play</button><button type="button" class="btn sm" id="vd-s-ff">+1 ⏭</button></div>
@@ -255,6 +256,7 @@ function renderVideo() {
         <button type="button" class="btn sm block" id="vd-s-align" style="margin-top:8px">Allinea qui (stesso istante del colpo)</button><p class="small mut" id="vd-s-off" style="margin:6px 0 0"></p></div></div>
     <div class="disclaimer"><span>🎥</span><span>${VIDEO_NOTE}</span></div>
   </div>`;
+  $("#vd-dock").hidden = true;
   paintSportShot(); bindPlayer(); bindSbs(); paintChecklist();
 }
 
@@ -286,38 +288,48 @@ function loadMain(file) {
   if (!file) return; if (VS.url) URL.revokeObjectURL(VS.url);
   VS.url = URL.createObjectURL(file); VS.name = file.name || "video"; VS.shapes = []; VS.cur = null; clearAnalysis();
   const vid = $("#vd-v"); vid.src = VS.url; $("#vd-player").hidden = false; vid.load();
+  if (!VS.adopted) { VS.adopted = true; const ex = $("#vd-extra"); ["#vd-an", "#vd-check", "#vd-sbs-card"].forEach(s => ex.append($(s))); }
+  $("#vd-dock").hidden = false; KQM.fit = vFit; vFit();
+}
+const vFit = () => { const st = $("#vd-stage"); if (!st) return; kqFitBox(st, $("#vd-dock"), [4 / 5, 1]); sizeCanvases(); paintOverlay(); paintPose(); };
+/* il video è contenuto nello stage con object-fit:contain: i segni sono in coordinate 0-1 del video, non dello stage */
+function vRect() {
+  const st = $("#vd-stage"), vid = $("#vd-v"), r = st.getBoundingClientRect(), vw = vid.videoWidth, vh = vid.videoHeight;
+  if (!vw || !vh) return { x: 0, y: 0, w: r.width, h: r.height };
+  const k = Math.min(r.width / vw, r.height / vh), w = vw * k, h = vh * k;
+  return { x: (r.width - w) / 2, y: (r.height - h) / 2, w, h };
 }
 function bindPlayer() {
   const vid = $("#vd-v"), seek = $("#vd-seek");
   $("#vd-rec").onchange = e => loadMain(e.target.files[0]);
   $("#vd-pick").onchange = e => loadMain(e.target.files[0]);
   vid.addEventListener("loadedmetadata", () => {
-    const ar = vid.videoWidth / vid.videoHeight || 16 / 9; const st = $("#vd-stage");
-    st.style.aspectRatio = `${vid.videoWidth} / ${vid.videoHeight}`; st.style.maxWidth = `calc(62vh * ${ar.toFixed(4)})`;
     $("#vd-an-go").disabled = false; $("#vd-an-prog").textContent = "Pronto per l'analisi. La prima volta scarica il modello (circa 20 MB), poi funziona anche offline.";
-    requestAnimationFrame(() => { sizeCanvases(); paintOverlay(); });
+    requestAnimationFrame(vFit);
     vid.currentTime = 0.001;
   });
   const upd = () => { $("#vd-time").textContent = fmtT(vid.currentTime || 0); if (vid.duration) seek.value = Math.round(vid.currentTime / vid.duration * 1000); paintPose(); };
   vid.addEventListener("timeupdate", upd); vid.addEventListener("seeked", upd);
-  vid.addEventListener("play", () => { $("#vd-play").textContent = "⏸ Pausa"; const loop = () => { if (!vid.paused) { upd(); requestAnimationFrame(loop); } }; loop(); });
-  vid.addEventListener("pause", () => $("#vd-play").textContent = "▶ Play");
-  vid.addEventListener("ended", () => $("#vd-play").textContent = "▶ Play");
+  const playIc = on => { const b = $("#vd-play"); b.textContent = on ? "⏸" : "▶"; b.setAttribute("aria-label", on ? "Pausa" : "Riproduci"); b.title = on ? "Pausa" : "Riproduci"; };
+  vid.addEventListener("play", () => { playIc(true); const loop = () => { if (!vid.paused) { upd(); requestAnimationFrame(loop); } }; loop(); });
+  vid.addEventListener("pause", () => playIc(false));
+  vid.addEventListener("ended", () => playIc(false));
   seek.oninput = () => { if (vid.duration) { vid.pause(); vid.currentTime = seek.value / 1000 * vid.duration; } };
   $("#vd-play").onclick = () => vid.paused ? vid.play().catch(() => { }) : vid.pause();
   const stepF = d => { vid.pause(); vid.currentTime = Math.max(0, Math.min((vid.duration || 0), vid.currentTime + d / 30)); };
   $("#vd-fb").onclick = () => stepF(-1); $("#vd-ff").onclick = () => stepF(1);
   $$("#vd-speed button").forEach(b => b.onclick = () => { vid.playbackRate = +b.dataset.r; $$("#vd-speed button").forEach(x => x.classList.toggle("on", x === b)); });
-  $$("#vd-tools [data-dt]").forEach(b => b.onclick = () => { VS.tool = b.dataset.dt; VS.cur = null; $$("#vd-tools [data-dt]").forEach(x => x.classList.toggle("on", x === b)); $("#vd-draw").classList.toggle("on", VS.tool !== "none"); if (VS.tool !== "none") vid.pause(); paintOverlay(); });
+  $$("#vd-tools [data-dt]").forEach(b => b.onclick = () => { VS.tool = b.dataset.dt; VS.cur = null; $$("#vd-tools [data-dt]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-pressed", String(x === b)); }); $("#vd-draw").classList.toggle("on", VS.tool !== "none"); if (VS.tool !== "none") vid.pause(); paintOverlay(); });
   $$("[data-col]").forEach(b => b.onclick = () => { VS.color = b.dataset.col; $$("[data-col]").forEach(x => x.classList.toggle("on", x === b)); });
   $("#vd-undo").onclick = () => { if (VS.cur) VS.cur = null; else VS.shapes.pop(); paintOverlay(); };
   $("#vd-clear").onclick = () => { VS.shapes = []; VS.cur = null; paintOverlay(); };
   $("#vd-snap").onclick = snapshot;
   $("#vd-skel").onchange = e => { VS.skel = e.target.checked; paintPose(); };
   $("#vd-an-go").onclick = runAnalysis;
-  window.addEventListener("resize", () => { sizeCanvases(); paintOverlay(); paintPose(); });
+  kqDockBind($("#vd-dock"), () => vFit());
   const cv = $("#vd-draw");
-  const pos = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
+  const clamp01 = n => Math.max(0, Math.min(1, n));
+  const pos = e => { const r = cv.getBoundingClientRect(), vr = vRect(); return [clamp01((e.clientX - r.left - vr.x) / vr.w), clamp01((e.clientY - r.top - vr.y) / vr.h)]; };
   cv.addEventListener("pointerdown", e => {
     if (VS.tool === "none") return; e.preventDefault(); cv.setPointerCapture && cv.setPointerCapture(e.pointerId); const p = pos(e);
     if (VS.tool === "angle") { if (!VS.cur) VS.cur = { t: "angle", c: VS.color, pts: [] }; VS.cur.pts.push(p); if (VS.cur.pts.length === 3) { VS.shapes.push(VS.cur); VS.cur = null; } }
@@ -342,13 +354,14 @@ function drawShapes(ctx, w, h, shapes, scale = 1) {
     if (s.t === "angle" && pts.length === 3) {
       const a = CIQV.angle3({ x: pts[0][0], y: pts[0][1] }, { x: pts[1][0], y: pts[1][1] }, { x: pts[2][0], y: pts[2][1] });
       if (a != null) { const txt = Math.round(a) + "°"; ctx.font = `bold ${16 * scale}px system-ui, sans-serif`; const tw = ctx.measureText(txt).width;
-        const x = pts[1][0] + 10 * scale, y = pts[1][1] - 10 * scale; ctx.fillStyle = "rgba(11,18,32,.8)"; ctx.fillRect(x - 4 * scale, y - 16 * scale, tw + 8 * scale, 22 * scale); ctx.fillStyle = s.c; ctx.fillText(txt, x, y); }
+        const x = pts[1][0] + 10 * scale, y = pts[1][1] - 10 * scale; ctx.fillStyle = "rgba(18,31,44,.85)"; ctx.fillRect(x - 4 * scale, y - 16 * scale, tw + 8 * scale, 22 * scale); ctx.fillStyle = s.c; ctx.fillText(txt, x, y); }
     }
   }
 }
 function paintOverlay() {
   const c = $("#vd-draw"); if (!c) return; const ctx = c.getContext("2d"); ctx.clearRect(0, 0, c.width, c.height);
-  const d = window.devicePixelRatio || 1; drawShapes(ctx, c.width, c.height, VS.shapes.concat(VS.cur ? [VS.cur] : []), d);
+  const d = window.devicePixelRatio || 1, vr = vRect(); ctx.save(); ctx.translate(vr.x * d, vr.y * d);
+  drawShapes(ctx, vr.w * d, vr.h * d, VS.shapes.concat(VS.cur ? [VS.cur] : []), d); ctx.restore();
 }
 function nearestFrame(t) {
   if (!VS.res || !VS.res.frames.length) return null; let best = null, bd = 1e9;
@@ -356,19 +369,20 @@ function nearestFrame(t) {
   return bd <= 0.15 ? best : null;
 }
 function drawPose(ctx, lms, w, h, scale = 1) {
-  ctx.lineWidth = 3 * scale; ctx.strokeStyle = "rgba(200,245,58,.9)"; ctx.fillStyle = "#0b1220";
+  ctx.lineWidth = 3 * scale; ctx.strokeStyle = "rgba(5,243,250,.9)"; ctx.fillStyle = "#0b1220";
   for (const [a, b] of POSE_LINKS) { const p = lms[a], q = lms[b]; if (!p || !q) continue; ctx.beginPath(); ctx.moveTo(p.x * w, p.y * h); ctx.lineTo(q.x * w, q.y * h); ctx.stroke(); }
-  ctx.strokeStyle = "#c8f53a";
+  ctx.strokeStyle = "#05f3fa";
   for (let i = 11; i < 33; i++) { const p = lms[i]; if (!p) continue; ctx.beginPath(); ctx.arc(p.x * w, p.y * h, 3.5 * scale, 0, 7); ctx.fill(); ctx.stroke(); }
 }
 function paintPose() {
   const c = $("#vd-pose"); if (!c) return; const ctx = c.getContext("2d"); ctx.clearRect(0, 0, c.width, c.height);
-  if (!VS.skel) return; const f = nearestFrame($("#vd-v").currentTime); if (f) drawPose(ctx, f.lms, c.width, c.height, window.devicePixelRatio || 1);
+  if (!VS.skel) return; const f = nearestFrame($("#vd-v").currentTime);
+  if (f) { const d = window.devicePixelRatio || 1, vr = vRect(); ctx.save(); ctx.translate(vr.x * d, vr.y * d); drawPose(ctx, f.lms, vr.w * d, vr.h * d, d); ctx.restore(); }
 }
 function snapshot() {
   const vid = $("#vd-v"); if (!vid.videoWidth) { toast("Carica prima un video"); return; }
   const w = vid.videoWidth, h = vid.videoHeight, c = document.createElement("canvas"); c.width = w; c.height = h;
-  const ctx = c.getContext("2d"); ctx.drawImage(vid, 0, 0, w, h); const sc = w / ($("#vd-stage").getBoundingClientRect().width || w);
+  const ctx = c.getContext("2d"); ctx.drawImage(vid, 0, 0, w, h); const sc = w / (vRect().w || w);
   if (VS.skel) { const f = nearestFrame(vid.currentTime); if (f) drawPose(ctx, f.lms, w, h, sc); }
   drawShapes(ctx, w, h, VS.shapes, sc);
   c.toBlob(async blob => {
@@ -431,7 +445,7 @@ async function runAnalysis() {
 function graphSVG(res) {
   const s = res.series, t = s.t; if (t.length < 2) return "";
   const W = 320, H = 150, t0 = t[0], t1 = t[t.length - 1] || 1, X = x => 8 + (x - t0) / (t1 - t0 || 1) * (W - 16), Y = v => H - 14 - v / 180 * (H - 26);
-  const lines = [["elbow", "#c8f53a", "Gomito"], ["shoulderAbd", "#60a5fa", "Spalla"], ["kneeFlex", "#fbbf24", "Ginocchio (flessione)"], ["trunkLean", "#f87171", "Busto (inclinazione)"]];
+  const lines = [["elbow", "#05f3fa", "Gomito"], ["shoulderAbd", "#3ef07b", "Spalla"], ["kneeFlex", "#fbbf24", "Ginocchio (flessione)"], ["trunkLean", "#f87171", "Busto (inclinazione)"]];
   const path = k => s[k].map((v, i) => v == null ? "" : `${i && s[k][i - 1] != null ? "L" : "M"}${X(t[i]).toFixed(1)} ${Y(v).toFixed(1)}`).join("");
   const grid = [0, 45, 90, 135, 180].map(g => `<line x1="8" x2="${W - 8}" y1="${Y(g)}" y2="${Y(g)}" class="gl"/><text x="${W - 6}" y="${Y(g) - 2}" class="gt" text-anchor="end">${g}°</text>`).join("");
   const imp = res.impact ? `<line x1="${X(res.impact.t)}" x2="${X(res.impact.t)}" y1="6" y2="${H - 12}" class="gimp"/><text x="${X(res.impact.t) + 3}" y="14" class="gt">${["squat", "landing", "decel"].includes(vShot().kind) ? "massima flessione" : "impatto stimato"}</text>` : "";
