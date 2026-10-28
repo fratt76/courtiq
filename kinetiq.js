@@ -461,7 +461,7 @@ function kqStartKbAnim() {
   };
   KQ.kbRAF = requestAnimationFrame(loop);
 }
-function kqStopAnims() { if (typeof KQM !== "undefined") KQM.fit = null; cancelAnimationFrame(KQ.kbRAF); KQ.kbRAF = 0; if (KQ.studio && KQ.studio.anim) { cancelAnimationFrame(KQ.studio.anim); KQ.studio.anim = 0; } }
+function kqStopAnims() { if (typeof kqStageOff === "function") kqStageOff(); cancelAnimationFrame(KQ.kbRAF); KQ.kbRAF = 0; if (KQ.studio && KQ.studio.anim) { cancelAnimationFrame(KQ.studio.anim); KQ.studio.anim = 0; } }
 
 function kqRenderTecnica() {
   const v = $("#view-tecnica");
@@ -989,9 +989,11 @@ function kqSkiInner(b) {
     : `<linearGradient id="sk-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d4f72"/><stop offset="1" stop-color="#1d3a58"/></linearGradient>`;
   let contours = "";
   F.pre.bands.forEach(([v0, v1, sp]) => {
-    for (let y = Math.max(20, v0 * SKI_H + sp / 2); y < Math.min(300, v1 * SKI_H); y += sp) {
-      const t = F.at(y / SKI_H), cx = t.u * SKI_W, nx = -t.ty, ny = t.tx;
-      contours += `<line x1="${(cx - nx * 110).toFixed(1)}" y1="${(y - ny * 110).toFixed(1)}" x2="${(cx + nx * 110).toFixed(1)}" y2="${(y + ny * 110).toFixed(1)}"/>`;
+    const vm = Math.min(.95, Math.max(.05, (v0 + v1) / 2)), t = F.at(vm), cx = t.u * SKI_W, cy = vm * SKI_H, nx = -t.ty, ny = t.tx;
+    for (let k = -40; k <= 40; k++) {
+      const px = cx + t.tx * k * sp, py = cy + t.ty * k * sp, fv = py / SKI_H;
+      if (fv < Math.max(.05, v0) || fv >= Math.min(.95, v1) || fv < 0 || py < 18 || py > 304) continue;
+      contours += `<line x1="${(px - nx * 120).toFixed(1)}" y1="${(py - ny * 120).toFixed(1)}" x2="${(px + nx * 120).toFixed(1)}" y2="${(py + ny * 120).toFixed(1)}"/>`;
     }
   });
   const fall = F.line.map((p, i) => `${i ? "L" : "M"}${(p[0] * SKI_W).toFixed(1)} ${(p[1] * SKI_H).toFixed(1)}`).join(" ");
@@ -1001,8 +1003,8 @@ function kqSkiInner(b) {
     : id === "muro" ? `<line x1="12" x2="188" y1="${.36 * SKI_H}" y2="${.36 * SKI_H}" class="sk-cut"/><line x1="12" x2="188" y1="${.62 * SKI_H}" y2="${.62 * SKI_H}" class="sk-cut"/><text x="16" y="${.36 * SKI_H - 3}" class="sk-note">cambio di pendenza</text><text x="16" y="${.62 * SKI_H + 9}" class="sk-note">cambio di pendenza</text><text x="184" y="${.5 * SKI_H}" class="sk-note" text-anchor="end">muro</text>` : "";
   const gates = [...k.gates].map((g, i) => ({ g, i })).sort((a, c) => a.g.v - c.g.v);
   const free = k.free.map(s => `<path class="sk-free" d="${s.map((p, i) => `${i ? "L" : "M"}${(p[0] * SKI_W).toFixed(1)} ${(p[1] * SKI_H).toFixed(1)}`).join(" ")}"/>`).join("");
-  const ch = L.changes.map(c => `<g class="sk-chg"><circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.4"/><line x1="${(c.x - c.nx * 7).toFixed(1)}" y1="${(c.y - c.ny * 7).toFixed(1)}" x2="${(c.x + c.nx * 7).toFixed(1)}" y2="${(c.y + c.ny * 7).toFixed(1)}"/>
-    <text x="${(c.x + (c.x > 100 ? -8 : 8)).toFixed(1)}" y="${(c.y + 2).toFixed(1)}" text-anchor="${c.x > 100 ? "end" : "start"}">cambio spigolo</text></g>`).join("");
+  const ch = L.changes.map((c, i) => `<g class="sk-chg"><circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.4"/><line x1="${(c.x - c.nx * 7).toFixed(1)}" y1="${(c.y - c.ny * 7).toFixed(1)}" x2="${(c.x + c.nx * 7).toFixed(1)}" y2="${(c.y + c.ny * 7).toFixed(1)}"/>
+    ${i === 0 ? `<text x="${(c.x + (c.x > 100 ? -8 : 8)).toFixed(1)}" y="${(c.y + 2).toFixed(1)}" text-anchor="${c.x > 100 ? "end" : "start"}">cambio spigolo</text>` : ""}</g>`).join("");
   return `<defs>${bg}<clipPath id="sk-clip"><rect x="10" y="14" width="180" height="292" rx="14"/></clipPath></defs>
     <rect width="${SKI_W}" height="${SKI_H}" fill="#0d1a26"/>
     <rect x="10" y="14" width="180" height="292" rx="14" fill="url(#sk-bg)"/>
@@ -1012,7 +1014,7 @@ function kqSkiInner(b) {
     ${free}</g>
     <text x="100" y="11" text-anchor="middle" class="sk-cap">LINEA DI MASSIMA PENDENZA (tratteggio)</text>
     ${k.green && L.green ? ch : ""}${gates.map(({ g, i }) => kqSkiGateSVG(g, i, k.kind)).join("")}
-    <polygon points="30,314 170,314 156,334 44,334" fill="#243a50"/><text x="100" y="327" text-anchor="middle" class="sk-cap2">${esc(SKI_KINDS[k.kind].toUpperCase())} · ${esc(F.pre.label.toUpperCase())}</text>`;
+    <polygon points="26,311 174,311 164,337 36,337" fill="#243a50"/><text x="100" y="321" text-anchor="middle" class="sk-cap2">${esc(SKI_KINDS[k.kind].toUpperCase())}</text><text x="100" y="331" text-anchor="middle" class="sk-cap3">${esc(F.pre.label.toUpperCase())}</text>`;
 }
 function kqSkiSVG(b) {
   return `<svg id="board" viewBox="0 0 ${SKI_W} ${SKI_H}" preserveAspectRatio="xMidYMid meet" aria-label="Lavagna sci: pendio e pali">${kqSkiInner(b)}</svg>`;

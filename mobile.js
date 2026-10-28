@@ -9,14 +9,20 @@ const SVGNS = "http://www.w3.org/2000/svg";
 
 /* ================= layout: header sticky, bottom sheet, stage fissato in alto ================= */
 function kqHeadH() {
-  const h = $(".stickyhead"), px = h ? h.offsetHeight : 0;
+  const h = document.body.classList.contains("stage-on") ? $(".top") : $(".stickyhead"), px = h ? h.offsetHeight : 0;
   document.documentElement.style.setProperty("--headh", px + "px");
   return px;
 }
 /* Porta lo stage alla misura che entra nello schermo sopra il dock: prima il rapporto preferito (es. 4:5), poi il successivo (1:1),
    e se nemmeno quello entra riduce la misura mantenendo il primo rapporto. */
+/* Con uno stage fisso solo la riga del logo resta in alto: sport e sezioni scorrono via e lasciano spazio alla lavagna. */
+function kqStageOff() {
+  KQM.fit = null; document.body.classList.remove("stage-on");
+  const v = $(".view.active"); if (v) v.style.paddingBottom = "";
+}
 function kqFitBox(box, dock, ratios, pad = { x: 0, y: 0 }) {
   if (!box || !box.parentElement || box.hidden || box.parentElement.hidden) return;
+  const fresh = !document.body.classList.contains("stage-on"); document.body.classList.add("stage-on");
   const w = (box.parentElement.clientWidth || 300) - pad.x;
   const head = kqHeadH(), tabs = ($(".tabs") || {}).offsetHeight || 0, dockH = dock && !dock.hidden ? dock.offsetHeight : 0;
   const avail = Math.max(150, window.innerHeight - head - tabs - dockH - 14 - pad.y);
@@ -24,7 +30,16 @@ function kqFitBox(box, dock, ratios, pad = { x: 0, y: 0 }) {
   for (const r of ratios) if (w / r <= avail) { bw = w; bh = w / r; break; }
   if (!bw) { bh = avail; bw = Math.min(w, avail * ratios[0]); }
   box.style.width = Math.round(bw) + "px"; box.style.height = Math.round(bh) + "px";
-  const view = box.closest(".view"); if (view && dock) view.style.paddingBottom = (dockH + 14) + "px";
+  const view = box.closest(".view");
+  if (view && dock) {
+    view.style.paddingBottom = (dockH + 14) + "px";
+    const top = box.parentElement.getBoundingClientRect().top + window.scrollY, need = top - head - 6 + window.innerHeight, have = document.documentElement.scrollHeight;
+    if (have < need) view.style.paddingBottom = (dockH + 14 + Math.ceil(need - have)) + "px";
+  }
+  if (fresh && window.scrollY < 5) requestAnimationFrame(() => {
+    const el = box.parentElement, top = el.getBoundingClientRect().top + window.scrollY;
+    window.scrollTo(0, Math.max(0, top - kqHeadH() - 6));
+  });
 }
 function kqDockHTML(id, mainHTML, bodyHTML) {
   return `<div class="dock" id="${id}"><button type="button" class="dock-h" aria-label="Apri o chiudi i controlli" aria-expanded="false"><span class="dock-bar"></span></button>
@@ -40,10 +55,11 @@ function kqDockBind(dock, onChange) {
     if (Math.abs(dy) < 14) set(!dock.classList.contains("open")); else set(dy < 0);
   };
   h.addEventListener("pointerup", end); h.addEventListener("pointercancel", () => { y0 = null; });
+  if (window.ResizeObserver && onChange) new ResizeObserver(() => onChange()).observe(dock);
   h.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); set(!dock.classList.contains("open")); } });
   return set;
 }
-window.addEventListener("resize", () => { kqHeadH(); KQM.fit && KQM.fit(); });
+window.addEventListener("resize", () => { if (typeof $ !== "function") return; kqHeadH(); KQM.fit && KQM.fit(); });
 window.addEventListener("orientationchange", () => setTimeout(() => KQM.fit && KQM.fit(), 250));
 document.addEventListener("contextmenu", e => { if (e.target.closest && e.target.closest("#board,#st-svg,#vd-draw,.kb-cv,.ink-cap")) e.preventDefault(); });
 

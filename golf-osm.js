@@ -166,7 +166,7 @@
     const token = {}; host._tok = token; const alive = () => host._tok === token && document.body.contains(host);
     const attr = `<div class="osm-attr">${ATTR}</div>`;
 
-    const clearBoardUI = () => { const r = $(".focusrow", ctx.view); if (r) r.remove(); KQM.fit = null; ctx.view.style.paddingBottom = ""; };
+    const clearBoardUI = () => { const r = $(".focusrow", ctx.view); if (r) r.remove(); kqStageOff(); };
     async function screenSearch(msg) {
       clearBoardUI();
       const recent = ((await cacheAll()) || []).filter(r => r.geo).sort((a, c) => c.ts - a.ts).slice(0, 6);
@@ -250,7 +250,7 @@
       const lastPoint = () => hb.pin || (hb.shots.length ? [hb.shots[hb.shots.length - 1].x2, hb.shots[hb.shots.length - 1].y2] : null);
       const readTxt = () => { const p = lastPoint(); if (!p) return "Tocca la mappa per misurare: dal tee e al green"; const m = measure(p); return `Dal tee ${m.tee} m · Rimangono ${m.rem} m${clubTxt(m.rem)}`; };
 
-      const main = `<div class="dock-read"><div class="dr-t"><b id="og-ttl">${esc(hole.label)}</b><span class="sub" id="og-sub">${readTxt()}</span></div>
+      const main = `<div class="dock-read has-nav"><div class="dr-t"><b id="og-ttl">${esc(hole.label)}</b><span class="sub" id="og-sub">${readTxt()}</span></div>
           <div class="dr-nav"><button type="button" class="btn sm icon" id="og-prev" aria-label="Buca precedente"${osm.hole ? "" : " disabled"}>‹</button><button type="button" class="btn sm icon" id="og-next" aria-label="Buca successiva"${osm.hole < holes.length - 1 ? "" : " disabled"}>›</button></div></div>
         <div class="dock-row">${TOOLS.map(([id, l]) => `<button type="button" class="chip ${osm.tool === id || (!osm.tool && id === "ruler") ? "on" : ""}" data-otool="${id}" aria-pressed="${osm.tool === id || (!osm.tool && id === "ruler")}">${l}</button>`).join("")}</div>`;
       const body = `<h4 class="dock-t">Buche</h4><div class="og-holes">${holes.map(h => `<button type="button" class="og-hole ${h.i === hole.i ? "on" : ""}" data-hole="${h.i}"><b>${h.n}${h.dup > 1 ? "·" + h.dup : ""}</b><span>${h.par ? "Par " + h.par : "Par n.d."} · ${h.len} m</span></button>`).join("")}</div>

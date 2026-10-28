@@ -703,6 +703,7 @@ function courtSVG(sport, board, mini = false) {
 let TOOL = "move", UNDO = [];
 function renderBoard() {
   const v = $("#view-lavagna");
+  kqStageOff();
   const cand = [S.boardSport, S.sport].filter(Boolean);
   let sport = cand.find(s => isCourt(s) || TACTICAL_SPORTS.includes(s)) || "tennis";
   if (TACTICAL_SPORTS.includes(sport)) { S.boardSport = sport; kqRenderTactical(v, sport); return; }
