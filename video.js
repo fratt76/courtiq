@@ -210,7 +210,7 @@ window.CIQV = CIQV;
 
 /* ================= interfaccia ================= */
 const POSE_LINKS = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28], [27, 29], [29, 31], [27, 31], [28, 30], [30, 32], [28, 32]];
-const VCOLORS = ["#c8f53a", "#f87171", "#60a5fa", "#fbbf24", "#ffffff"];
+const VCOLORS = ["#05f3fa", "#f87171", "#60a5fa", "#fbbf24", "#ffffff"];
 const VS = { sport: null, shot: null, url: null, name: "", tool: "none", color: VCOLORS[0], shapes: [], cur: null, res: null, skel: true, tsOff: 0, lm: null, busy: false,
   urlA: null, urlB: null, offB: 0 };
 const VIDEO_NOTE = "La revisione del video è un aiuto per autovalutarti: non sostituisce il maestro, il medico o il fisioterapista.";
@@ -342,7 +342,7 @@ function drawShapes(ctx, w, h, shapes, scale = 1) {
     if (s.t === "angle" && pts.length === 3) {
       const a = CIQV.angle3({ x: pts[0][0], y: pts[0][1] }, { x: pts[1][0], y: pts[1][1] }, { x: pts[2][0], y: pts[2][1] });
       if (a != null) { const txt = Math.round(a) + "°"; ctx.font = `bold ${16 * scale}px system-ui, sans-serif`; const tw = ctx.measureText(txt).width;
-        const x = pts[1][0] + 10 * scale, y = pts[1][1] - 10 * scale; ctx.fillStyle = "rgba(11,18,32,.8)"; ctx.fillRect(x - 4 * scale, y - 16 * scale, tw + 8 * scale, 22 * scale); ctx.fillStyle = s.c; ctx.fillText(txt, x, y); }
+        const x = pts[1][0] + 10 * scale, y = pts[1][1] - 10 * scale; ctx.fillStyle = "rgba(18,31,44,.85)"; ctx.fillRect(x - 4 * scale, y - 16 * scale, tw + 8 * scale, 22 * scale); ctx.fillStyle = s.c; ctx.fillText(txt, x, y); }
     }
   }
 }
@@ -356,9 +356,9 @@ function nearestFrame(t) {
   return bd <= 0.15 ? best : null;
 }
 function drawPose(ctx, lms, w, h, scale = 1) {
-  ctx.lineWidth = 3 * scale; ctx.strokeStyle = "rgba(200,245,58,.9)"; ctx.fillStyle = "#0b1220";
+  ctx.lineWidth = 3 * scale; ctx.strokeStyle = "rgba(5,243,250,.9)"; ctx.fillStyle = "#0b1220";
   for (const [a, b] of POSE_LINKS) { const p = lms[a], q = lms[b]; if (!p || !q) continue; ctx.beginPath(); ctx.moveTo(p.x * w, p.y * h); ctx.lineTo(q.x * w, q.y * h); ctx.stroke(); }
-  ctx.strokeStyle = "#c8f53a";
+  ctx.strokeStyle = "#05f3fa";
   for (let i = 11; i < 33; i++) { const p = lms[i]; if (!p) continue; ctx.beginPath(); ctx.arc(p.x * w, p.y * h, 3.5 * scale, 0, 7); ctx.fill(); ctx.stroke(); }
 }
 function paintPose() {
@@ -431,7 +431,7 @@ async function runAnalysis() {
 function graphSVG(res) {
   const s = res.series, t = s.t; if (t.length < 2) return "";
   const W = 320, H = 150, t0 = t[0], t1 = t[t.length - 1] || 1, X = x => 8 + (x - t0) / (t1 - t0 || 1) * (W - 16), Y = v => H - 14 - v / 180 * (H - 26);
-  const lines = [["elbow", "#c8f53a", "Gomito"], ["shoulderAbd", "#60a5fa", "Spalla"], ["kneeFlex", "#fbbf24", "Ginocchio (flessione)"], ["trunkLean", "#f87171", "Busto (inclinazione)"]];
+  const lines = [["elbow", "#05f3fa", "Gomito"], ["shoulderAbd", "#3ef07b", "Spalla"], ["kneeFlex", "#fbbf24", "Ginocchio (flessione)"], ["trunkLean", "#f87171", "Busto (inclinazione)"]];
   const path = k => s[k].map((v, i) => v == null ? "" : `${i && s[k][i - 1] != null ? "L" : "M"}${X(t[i]).toFixed(1)} ${Y(v).toFixed(1)}`).join("");
   const grid = [0, 45, 90, 135, 180].map(g => `<line x1="8" x2="${W - 8}" y1="${Y(g)}" y2="${Y(g)}" class="gl"/><text x="${W - 6}" y="${Y(g) - 2}" class="gt" text-anchor="end">${g}°</text>`).join("");
   const imp = res.impact ? `<line x1="${X(res.impact.t)}" x2="${X(res.impact.t)}" y1="6" y2="${H - 12}" class="gimp"/><text x="${X(res.impact.t) + 3}" y="14" class="gt">${["squat", "landing", "decel"].includes(vShot().kind) ? "massima flessione" : "impatto stimato"}</text>` : "";

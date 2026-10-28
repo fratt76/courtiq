@@ -295,7 +295,7 @@ function pvSessionHTML(info) {
   if (sess) {
     const items = pvItems(sess), tot = pvTotal(items);
     const ar = PV_AREAS[sess.cfg.focus];
-    out += `<div class="card" id="pv-sess"><div class="row between"><h3>${SPORT_ICON[sess.cfg.sport] || ""} ${esc(SPORTS[sess.cfg.sport])} · ${PV_LEVELS[sess.cfg.level]}</h3><span class="pill acc" id="pv-min">${Math.round(tot / 60)} min</span></div>
+    out += `<div class="card" id="pv-sess"><div class="row between"><h3 class="h-ic">${sportIcon(sess.cfg.sport, 20)}${esc(SPORTS[sess.cfg.sport])} · ${PV_LEVELS[sess.cfg.level]}</h3><span class="pill acc" id="pv-min">${Math.round(tot / 60)} min</span></div>
       <p class="small mut">${esc(ar.label)} · ${sess.cfg.eq.length ? "attrezzi: " + sess.cfg.eq.map(e => PV_EQ[e].toLowerCase()).join(", ") : "senza attrezzi"} · ${esc(PV_MIX[sess.cfg.mix].label.toLowerCase())}</p>
       ${sess.filler ? `<div class="alert yellow"><span>ℹ️</span><div>Per questa zona e attrezzatura ci sono pochi esercizi: la sessione è completata con esercizi per tutto il corpo.</div></div>` : ""}
       ${sess.risky.length && sess.cfg.avoid ? `<div class="alert yellow"><span>ℹ️</span><div>Esclusi gli esercizi che caricano: ${esc(sess.risky.map(g => GROUP_LABELS[g].toLowerCase()).join(", "))}. Per la zona con fastidio usa il <b>Recovery</b>.</div></div>` : ""}

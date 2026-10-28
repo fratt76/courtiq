@@ -279,6 +279,12 @@ function kqPhone(raw) {
   if (d.length === 10 && d.startsWith("3")) d = "39" + d;
   return d;
 }
+/* Chiamata: se il numero ha il prefisso internazionale (o è un cellulare italiano a 10 cifre) si compone con +, altrimenti com'è */
+function kqTelLink(phone) {
+  const raw = String(phone || ""), d = kqPhone(raw);
+  const intl = /^\s*(\+|00)/.test(raw) || (d.length === 12 && d.startsWith("39"));
+  return "tel:" + (intl ? "+" : "") + d;
+}
 function kqWaLink(phone, extra) {
   const text = extra ? KQ_WA + "\n\n" + extra : KQ_WA;
   return `https://wa.me/${kqPhone(phone)}?text=${encodeURIComponent(text)}`;
@@ -299,7 +305,7 @@ function kqContactSpec(zone) {
   openSheet(`<h2>Invia il riepilogo</h2>
     <p class="small mut">Si apre WhatsApp con il messaggio già scritto. Lo invii tu. L'app non manda nulla da sola.</p>
     ${ranked.map(s => `<div class="threq"><b>${esc(s.name)}</b><div class="small mut">${esc(KQ_ROLE[s.role] || s.role)} · ${esc(s.city || "")}</div>
-      <a class="btn sm pri" style="margin-top:8px" href="${esc(kqWaLink(s.phone, extra))}" target="_blank" rel="noopener">WhatsApp</a></div>`).join("")}
+      <div class="btns" style="margin-top:8px"><a class="btn sm pri" href="${esc(kqWaLink(s.phone, extra))}" target="_blank" rel="noopener">WhatsApp</a>${kqPhone(s.phone).length >= 8 ? `<a class="btn sm" href="${esc(kqTelLink(s.phone))}" aria-label="Chiama ${esc(s.name)}">Chiama</a>` : ""}</div></div>`).join("")}
     <button type="button" class="btn ghost block" id="go-rete">Apri la rete</button>`, r => {
     $("#go-rete", r).onclick = () => { closeSheet(); KQ.rete = "specs"; go("rete"); };
   });
@@ -321,7 +327,7 @@ function kqRenderSportBar() {
   const bar = $("#sportbar"); if (!bar) return;
   if (bar.dataset.built !== "1") {
     bar.innerHTML = `<div class="sportbar-scroll">${SPORT_CATS.map(c => `<div class="sg"><span class="sg-l">${esc(c.label)}</span><div class="sg-row">${c.sports.map(id =>
-      `<button type="button" class="chip" data-val="${id}">${SPORT_ICON[id] || ""} ${esc(SPORTS[id])}</button>`).join("")}</div></div>`).join("")}</div>`;
+      `<button type="button" class="chip" data-val="${id}">${sportIcon(id, 18)}${esc(SPORTS[id])}</button>`).join("")}</div></div>`).join("")}</div>`;
     bar.dataset.built = "1";
     $$("[data-val]", bar).forEach(b => b.onclick = () => kqSetSport(b.dataset.val));
   }
@@ -423,30 +429,30 @@ function kqDrawKb(cv, id, t) {
   const ctx = cv.getContext("2d");
   const w = cv.width, h = cv.height;
   ctx.clearRect(0, 0, w, h);
-  ctx.fillStyle = "#0c1628"; ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = "#0d1a26"; ctx.fillRect(0, 0, w, h);
   const frame = kqKbPose(id || "swing", t);
   const pose = frame && frame.pose;
   if (!pose || !pose.head || !pose.sh) return;
   const phase = frame.phase || "";
   const X = p => p[0] / 240 * w, Y = p => p[1] / 200 * h;
   const line = (a, b) => { if (!pose[a] || !pose[b]) return; ctx.beginPath(); ctx.moveTo(X(pose[a]), Y(pose[a])); ctx.lineTo(X(pose[b]), Y(pose[b])); ctx.stroke(); };
-  ctx.lineCap = "round"; ctx.lineWidth = Math.max(4, w / 70); ctx.strokeStyle = "#c8f53a";
+  ctx.lineCap = "round"; ctx.lineWidth = Math.max(4, w / 70); ctx.strokeStyle = "#05f3fa";
   line("head", "sh"); line("sh", "hip"); line("hip", "knee"); line("knee", "an"); line("sh", "wr");
   ctx.fillStyle = "#eef3ff";
   ctx.beginPath(); ctx.arc(X(pose.head), Y(pose.head), Math.max(7, w / 42), 0, 7); ctx.fill();
   const bx = X(pose.bell), by = Y(pose.bell);
-  ctx.fillStyle = "#22d3ee"; ctx.beginPath(); ctx.arc(bx, by, Math.max(8, w / 36), 0, 7); ctx.fill();
+  ctx.fillStyle = "#3ef07b"; ctx.beginPath(); ctx.arc(bx, by, Math.max(8, w / 36), 0, 7); ctx.fill();
   ctx.strokeStyle = "#eef3ff"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(bx, by - Math.max(6, w / 48), Math.max(6, w / 46), Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
   ctx.fillStyle = "#93a3c2"; ctx.font = `${Math.max(12, w / 28)}px system-ui,sans-serif`;
   ctx.fillText(phase, 10, h - 12);
-  ctx.fillStyle = "#c8f53a"; ctx.font = `${Math.max(10, w / 34)}px system-ui,sans-serif`;
+  ctx.fillStyle = "#05f3fa"; ctx.font = `${Math.max(10, w / 34)}px system-ui,sans-serif`;
   ctx.fillText("Schema didattico", 10, 18);
 }
 function kqStartKbAnim() {
   cancelAnimationFrame(KQ.kbRAF);
   const cvs = $$("canvas.kb-cv");
-  if (!cvs.length || TAB !== "tecnica") return;
+  if (!cvs.length || (TAB !== "tecnica" && TAB !== "drill")) return;
   const t0 = performance.now();
   const loop = now => {
     const t = ((now - t0) / 1000 % 3.2) / 3.2;
@@ -455,7 +461,7 @@ function kqStartKbAnim() {
   };
   KQ.kbRAF = requestAnimationFrame(loop);
 }
-function kqStopAnims() { cancelAnimationFrame(KQ.kbRAF); KQ.kbRAF = 0; if (KQ.studio && KQ.studio.anim) { cancelAnimationFrame(KQ.studio.anim); KQ.studio.anim = 0; } }
+function kqStopAnims() { if (typeof KQM !== "undefined") KQM.fit = null; cancelAnimationFrame(KQ.kbRAF); KQ.kbRAF = 0; if (KQ.studio && KQ.studio.anim) { cancelAnimationFrame(KQ.studio.anim); KQ.studio.anim = 0; } }
 
 function kqRenderTecnica() {
   const v = $("#view-tecnica");
@@ -463,7 +469,7 @@ function kqRenderTecnica() {
   const b = SPORT_BIO[id] || SPORT_BIO.tennis;
   const zones = b.zones.map(z => GROUP_LABELS[z] || z).join(", ");
   v.innerHTML = `${kqSpecBanner(analyze(S.sessions, S.draftPains))}
-    <div class="card"><div class="row between"><h2>${SPORT_ICON[id] || ""} ${esc(SPORTS[id])}</h2><span class="pill acc">Tecnica</span></div>
+    <div class="card"><div class="row between"><h2 class="h-ic">${sportIcon(id, 24)}${esc(SPORTS[id])}</h2><span class="pill acc">Tecnica</span></div>
       <p class="small mut">Finestre di riferimento usate in campo. Non sono una misura del tuo gesto e non sono una diagnosi.</p>
       <ul class="list">${b.angles.map(([k, val]) => `<li><div class="grow"><div class="t">${esc(k)}</div><div class="s">${esc(val)}</div></div></li>`).join("")}</ul>
       <div class="alert yellow"><span>ℹ️</span><div>${esc(b.alert)}</div></div>
@@ -663,7 +669,7 @@ function kqStudioSync() {
   p.nodes.forEach(n => {
     const g = $("#nd-" + n.id); if (!g) return;
     g.setAttribute("transform", `translate(${pose[n.id].x.toFixed(1)} ${pose[n.id].y.toFixed(1)})`);
-    g.setAttribute("class", "nd" + (n.drag ? " drag" : "") + " " + m.zone);
+    g.setAttribute("class", "nd" + (n.drag ? " drag" : "") + " " + m.zone + (st.sel === n.id ? " sel" : ""));
   });
   const ar = p.arrow(pose, m), fg = $("#st-force");
   if (fg) {
@@ -676,10 +682,11 @@ function kqStudioSync() {
       const lab = $("#st-flab"); lab.setAttribute("x", (x1 + x2) / 2); lab.setAttribute("y", (y1 + y2) / 2 - 6); lab.textContent = p.force;
     }
   }
-  const box = $("#st-read"); if (box) box.innerHTML = `<b class="z-${m.zone === "amber" ? "yellow" : m.zone}">${esc(m.text)}</b><br><span class="small mut">${esc(m.sub)}</span>`;
+  const box = $("#st-read"); if (box) box.innerHTML = `<b class="z-${m.zone === "amber" ? "yellow" : m.zone}">${esc(m.text)}</b><span class="small mut sub">${esc(m.sub)}</span>`;
   const sl = $("#st-morph"); if (sl && document.activeElement !== sl) sl.value = Math.round(st.morph * 100);
   kqFeedback(m.zone, p.phrase);
 }
+const KQ_NODE_LABEL = { head: "Testa", shoulder: "Spalla", elbow: "Gomito", wrist: "Polso", lumbar: "Lombare", hip: "Anca", knee: "Ginocchio", ankle: "Caviglia", hipR: "Anca dx", kneeR: "Ginocchio dx" };
 function kqRenderStudio() {
   const v = $("#view-studio");
   const st = kqEnsureStudio();
@@ -688,29 +695,37 @@ function kqRenderStudio() {
   const canV = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
   const canS = typeof window.speechSynthesis !== "undefined";
   const canT = !!(window.AudioContext || window.webkitAudioContext);
+  const dragNodes = p.nodes.filter(n => n.drag);
+  if (st.sel && !dragNodes.some(n => n.id === st.sel)) st.sel = null;
   v.innerHTML = `<div class="card tight"><h2>Studio correzione</h2>
-    <p class="small mut">Trascina i nodi con l'anello. Il colore segue l'angolo chiave: rosso, ambra, verde. Lo scheletro verde è la postura di riferimento del preset.</p>
+    <p class="small mut">Trascina i nodi con l'anello, oppure scegli un nodo nel pannello in basso e trascina in un punto qualsiasi dello schema: il dito non copre il punto. Il colore segue l'angolo chiave: rosso, ambra, verde.</p>
     <div class="chips" id="st-pres">${STUDIO.map(x => `<button type="button" class="chip ${x.id === p.id ? "on" : ""}" data-pre="${x.id}">${esc(x.sport)}</button>`).join("")}</div>
     <p class="small" style="margin:8px 0 0"><b>${esc(p.title)}</b><br><span class="mut">${esc(p.note)}</span></p></div>
-    <div class="boardwrap studio-wrap"><svg id="st-svg" viewBox="0 0 200 280" aria-label="Scheletro da correggere">
-      <rect width="200" height="280" fill="#0c1628"/>
+    <div class="boardwrap studio-wrap stick" id="st-wrap"><svg id="st-svg" viewBox="0 0 200 280" aria-label="Scheletro da correggere">
+      <rect width="200" height="280" fill="#0d1a26"/>
       <g id="st-ghost">${p.bones.map((_, i) => `<line id="gb-${i}" class="bone ghost"/>`).join("")}</g>
       <g id="st-bones">${p.bones.map((_, i) => `<line id="bb-${i}" class="bone"/>`).join("")}</g>
       <g id="st-force" visibility="hidden"><line id="st-fl"/><polygon id="st-fh"/><text id="st-flab"></text></g>
       <g id="st-nodes">${p.nodes.map(n => `<g id="nd-${n.id}" class="nd ${n.drag ? "drag" : ""}" data-node="${n.id}"><circle r="${n.drag ? 11 : 5}"/></g>`).join("")}</g>
     </svg></div>
-    <div class="card tight" id="st-read"></div>
-    <div class="card tight"><label class="lbl">Morphing verso il riferimento <b id="st-mv">${Math.round(st.morph * 100)}%</b></label>
-      <input type="range" id="st-morph" min="0" max="100" value="${Math.round(st.morph * 100)}">
-      <button type="button" class="btn pri block" id="st-anim">Anima correzione</button>
-      <button type="button" class="btn ghost block" id="st-reset" style="margin-top:8px">Torna al preset</button></div>
-    <div class="card tight"><h3>Feedback</h3>
-      <label class="check"><input type="checkbox" id="fb-vibe" ${fb.vibe ? "checked" : ""} ${canV ? "" : "disabled"}> Vibrazione ${canV ? "" : "(non disponibile su questo dispositivo)"}</label>
-      <label class="check"><input type="checkbox" id="fb-tone" ${fb.tone ? "checked" : ""} ${canT ? "" : "disabled"}> Tono 440 → 880 Hz ${canT ? "" : "(audio non disponibile)"}</label>
-      <label class="check"><input type="checkbox" id="fb-voice" ${fb.voice ? "checked" : ""} ${canS ? "" : "disabled"}> Voce breve ${canS ? "" : "(sintesi vocale non disponibile)"}</label>
-      <p class="small mut">In zona rossa: doppio impulso. Quando entri nel verde: un impulso breve, un tono e, se attiva, una frase. Se il telefono non supporta vibrazione o voce, restano il colore e i gradi.</p></div>
-    ${DISCLAIMER}`;
+    ${kqDockHTML("st-dock", `<div id="st-read" class="dock-read"></div>
+        <div class="dock-row"><label class="dock-lbl" for="st-morph">Ghost <b id="st-mv">${Math.round(st.morph * 100)}%</b></label>
+        <input type="range" id="st-morph" min="0" max="100" value="${Math.round(st.morph * 100)}" aria-label="Morphing verso il riferimento">
+        <button type="button" class="btn pri sm" id="st-anim">Anima correzione</button></div>`,
+      `<h4 class="dock-t">Nodo da muovere</h4>
+        <div class="chips" id="st-sel">${dragNodes.map(n => `<button type="button" class="chip ${st.sel === n.id ? "on" : ""}" data-sel="${n.id}">${esc(KQ_NODE_LABEL[n.id] || n.id)}</button>`).join("")}</div>
+        <button type="button" class="btn ghost block" id="st-reset" style="margin-top:10px">Torna al preset</button>
+        <h4 class="dock-t">Feedback</h4>
+        <label class="check"><input type="checkbox" id="fb-vibe" ${fb.vibe ? "checked" : ""} ${canV ? "" : "disabled"}> Vibrazione ${canV ? "" : "(non disponibile su questo dispositivo)"}</label>
+        <label class="check"><input type="checkbox" id="fb-tone" ${fb.tone ? "checked" : ""} ${canT ? "" : "disabled"}> Tono 440 → 880 Hz ${canT ? "" : "(audio non disponibile)"}</label>
+        <label class="check"><input type="checkbox" id="fb-voice" ${fb.voice ? "checked" : ""} ${canS ? "" : "disabled"}> Voce breve ${canS ? "" : "(sintesi vocale non disponibile)"}</label>
+        <p class="small mut">In zona rossa: doppio impulso. Quando entri nel verde: un impulso breve, un tono e, se attiva, una frase. Se il telefono non supporta vibrazione o voce, restano il colore e i gradi.</p>${DISCLAIMER}`)}`;
   $$("[data-pre]", v).forEach(b => b.onclick = () => { KQ.studio = null; KQ.wantPreset = b.dataset.pre; kqRenderStudio(); });
+  const dock = $("#st-dock", v), svg = $("#st-svg", v);
+  const fit = () => kqFitBox(svg, dock, [200 / 280], { x: 16, y: 18 });
+  KQM.fit = fit;
+  kqDockBind(dock, () => fit());
+  fit();
   const sl = $("#st-morph", v);
   sl.oninput = () => { st.morph = +sl.value / 100; $("#st-mv").textContent = sl.value + "%"; kqStudioSync(); };
   $("#st-anim", v).onclick = () => {
@@ -729,25 +744,31 @@ function kqRenderStudio() {
   $("#st-reset", v).onclick = () => { KQ.studio = null; KQ.wantPreset = p.id; kqRenderStudio(); };
   const setFb = (key, el) => { el.onchange = () => { S.fb = Object.assign({ vibe: true, voice: true, tone: true }, S.fb); S.fb[key] = el.checked; save(); }; };
   setFb("vibe", $("#fb-vibe", v)); setFb("tone", $("#fb-tone", v)); setFb("voice", $("#fb-voice", v));
-  const svg = $("#st-svg", v);
+  const paintSel = () => { $$("#st-sel [data-sel]", v).forEach(b => b.classList.toggle("on", b.dataset.sel === st.sel)); kqStudioSync(); };
+  $$("#st-sel [data-sel]", v).forEach(b => b.onclick = () => { st.sel = st.sel === b.dataset.sel ? null : b.dataset.sel; paintSel(); });
   let drag = null;
+  const toSvg = e => { const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY; return pt.matrixTransform(svg.getScreenCTM().inverse()); };
   svg.addEventListener("pointerdown", e => {
-    const g = e.target.closest("[data-node]"); if (!g) return;
-    const nd = p.nodes.find(n => n.id === g.dataset.node); if (!nd || !nd.drag) return;
+    const g = e.target.closest("[data-node]");
+    let nd = g && p.nodes.find(n => n.id === g.dataset.node);
+    if (nd && !nd.drag) nd = null;
+    if (!nd && st.sel) nd = p.nodes.find(n => n.id === st.sel);
+    if (!nd) return;
     if (st.morph > 0.001) {
       const pose = kqDisplayed();
       p.nodes.forEach(n => { st.nodes[n.id] = { x: pose[n.id].x, y: pose[n.id].y }; });
-      st.morph = 0;
+      st.morph = 0; const m = $("#st-morph"); if (m) m.value = 0; const lab = $("#st-mv"); if (lab) lab.textContent = "0%";
     }
-    drag = nd.id;
+    const q = toSvg(e), cur = st.nodes[nd.id];
+    drag = { id: nd.id, dx: cur.x - q.x, dy: cur.y - q.y };
+    if (st.sel !== nd.id) { st.sel = nd.id; paintSel(); }
     try { svg.setPointerCapture(e.pointerId); } catch (err) { }
     e.preventDefault();
   });
   svg.addEventListener("pointermove", e => {
     if (!drag) return;
-    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
-    const q = pt.matrixTransform(svg.getScreenCTM().inverse());
-    st.nodes[drag] = { x: Math.max(8, Math.min(192, q.x)), y: Math.max(8, Math.min(272, q.y)) };
+    const q = toSvg(e);
+    st.nodes[drag.id] = { x: Math.max(8, Math.min(192, q.x + drag.dx)), y: Math.max(8, Math.min(272, q.y + drag.dy)) };
     kqStudioSync();
   });
   const end = () => { drag = null; };
@@ -774,14 +795,28 @@ function kqRenderTactical(v, sport) {
   else kqBellHTML(v, b);
   kqBindBoardBar(v);
 }
+const KQ_LOADED = {};
+function kqLoadScript(src) {
+  return KQ_LOADED[src] || (KQ_LOADED[src] = new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = src; s.onload = res; s.onerror = () => { delete KQ_LOADED[src]; rej(new Error("load")); };
+    document.head.appendChild(s);
+  }));
+}
+function kqGolfModeBar(b) {
+  return `<div class="seg full" id="g-mode" style="margin-top:8px">${[["schema", "Schematica"], ["map", "Mappa reale"]].map(([id, l]) => `<button type="button" class="${(b.mode || "schema") === id ? "on" : ""}" data-mode="${id}">${l}</button>`).join("")}</div>`;
+}
 function kqGolfHTML(v, b) {
-  const tools = [["draw", "Draw"], ["fade", "Fade"], ["push", "Push"], ["slice", "Slice"]];
-  v.innerHTML = `<div class="card tight">${kqBoardBar("golf")}
+  const note = b.notice; delete b.notice;
+  if (b.mode === "map") { kqGolfMapHTML(v, b); return; }
+  const tools = [["draw", "Draw"], ["fade", "Fade"], ["lay", "Lay-up"], ["push", "Push"], ["slice", "Slice"]];
+  if (!tools.some(t => t[0] === b.tool)) b.tool = "draw";
+  v.innerHTML = `<div class="card tight">${kqBoardBar("golf")}${kqGolfModeBar(b)}
+    ${note ? `<p class="og-msg" role="status" style="margin:8px 0 0">${esc(note)}</p>` : ""}
     <p class="small mut" style="margin:8px 0">Fairway schematico. Scegli la forma e trascina dal basso verso la buca. È una lavagna, non la traiettoria di un colpo reale.</p>
     <div class="toolbar">${tools.map(([id, l]) => `<button type="button" class="chip ${b.tool === id ? "on" : ""}" data-tool="${id}">${l}</button>`).join("")}
       <button type="button" class="chip" id="g-demo">Esempio draw/fade</button><button type="button" class="chip" id="g-clr">Pulisci</button></div></div>
     <div class="boardwrap">${kqGolfSVG(b)}</div>
-    <p class="legendrow small mut"><span>Draw: curva a sinistra</span><span>Fade: curva a destra</span><span>Push e slice: traiettorie aperte</span></p>`;
+    <p class="legendrow small mut"><span>Draw: curva a sinistra</span><span>Fade: curva a destra</span><span>Lay-up: colpo di sicurezza</span><span>Push e slice: traiettorie aperte</span></p>`;
   $$("[data-tool]", v).forEach(x => x.onclick = () => { b.tool = x.dataset.tool; save(); renderBoard(); });
   $("#g-clr", v).onclick = () => { b.shots = []; save(); renderBoard(); };
   $("#g-demo", v).onclick = () => {
@@ -789,17 +824,35 @@ function kqGolfHTML(v, b) {
     save(); renderBoard(); toast("Traiettorie dimostrative, non un colpo reale");
   };
   kqBindGolf($("#board", v), b);
+  kqBindGolfMode(v, b);
+  kqBoardExtras(v, b);
+}
+function kqBindGolfMode(v, b) {
+  $$("#g-mode [data-mode]", v).forEach(x => x.onclick = () => { b.mode = x.dataset.mode; save(); renderBoard(); });
+}
+function kqGolfMapHTML(v, b) {
+  v.innerHTML = `<div class="card tight">${kqBoardBar("golf")}${kqGolfModeBar(b)}</div><div id="og-host"><div class="card og-card"><div class="og-load"><span class="spin" aria-hidden="true"></span><div class="small mut">Carico il modulo mappe…</div></div></div></div>`;
+  kqBindGolfMode(v, b);
+  const host = $("#og-host", v);
+  kqLoadScript("golf-osm.js").then(() => {
+    if (!document.body.contains(host)) return;
+    KQGolfOSM.mount(host, b, { view: v, noHoles: msg => { b.notice = msg; b.mode = "schema"; save(); renderBoard(); } });
+  }).catch(() => {
+    host.innerHTML = `<div class="card og-card"><p class="og-msg err" role="alert">Non riesco a caricare il modulo mappe (serve connessione la prima volta).</p><div class="btns"><button type="button" class="btn" id="og-rl">Riprova</button><button type="button" class="btn ghost" id="og-sc">Lavagna schematica</button></div></div>`;
+    $("#og-rl", host).onclick = () => kqGolfMapHTML(v, b);
+    $("#og-sc", host).onclick = () => { b.mode = "schema"; save(); renderBoard(); };
+  });
 }
 function kqShotPath(s) {
   const X = v => v * 200, Y = v => v * 340;
   const x1 = X(s.x1), y1 = Y(s.y1), x2 = X(s.x2), y2 = Y(s.y2), mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-  const bend = (s.t === "draw" ? -32 : s.t === "fade" ? 28 : s.t === "slice" ? 44 : 16);
+  const bend = (s.t === "draw" ? -32 : s.t === "fade" ? 28 : s.t === "slice" ? 44 : s.t === "lay" ? 6 : 16);
   return `M ${x1} ${y1} Q ${mx + bend} ${my} ${x2} ${y2}`;
 }
 function kqGolfSVG(b) {
   const shots = (b.shots || []).map(s => `<path class="shot ${s.t}" d="${kqShotPath(s)}"/>`).join("");
   return `<svg id="board" viewBox="0 0 200 340" preserveAspectRatio="xMidYMid meet">
-    <rect width="200" height="340" fill="#0c1628"/>
+    <rect width="200" height="340" fill="#0d1a26"/>
     <path d="M70 20 C60 80 58 160 64 250 C68 300 80 330 100 336 C120 330 132 300 136 250 C142 160 140 80 130 20 Z" fill="#14532d"/>
     <ellipse cx="100" cy="48" rx="28" ry="18" fill="#166534"/>
     <circle cx="100" cy="46" r="3.5" fill="#0b1220"/><circle cx="100" cy="44" r="1.4" fill="#eef3ff"/>
@@ -824,43 +877,208 @@ function kqBindGolf(svg, b) {
   };
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", () => { drag = null; });
 }
-function kqSkiHTML(v, b) {
-  v.innerHTML = `<div class="card tight">${kqBoardBar("sci")}
-    <p class="small mut" style="margin:8px 0">Profilo schematico della pista e linea di conduzione. Trascina per disegnare le curve. Non è il rilievo di una pista reale.</p>
-    <div class="toolbar"><button type="button" class="chip" id="s-demo">Curva dimostrativa</button><button type="button" class="chip" id="s-clr">Pulisci</button></div></div>
-    <div class="boardwrap">${kqSkiSVG(b)}</div>
-    <p class="small mut">Sotto, il cuneo è solo un promemoria di pendenza: non ha gradi veri.</p>`;
-  $("#s-clr", v).onclick = () => { b.pts = []; save(); renderBoard(); };
-  $("#s-demo", v).onclick = () => {
-    b.pts = [[.5, .08], [.32, .28], [.68, .48], [.34, .68], [.62, .88]];
-    b.demo = true; save(); renderBoard(); toast("Linea dimostrativa, non una discesa reale");
+/* ---------- Lavagna Sci: tracciato con pali, linea ideale e linea in ritardo (geometria schematica, nessun dato esterno) ---------- */
+const SKI_W = 200, SKI_H = 340;
+const SKI_KINDS = { sl: "Slalom Speciale", gs: "Gigante" };
+/* Ogni preset: punti della linea di massima pendenza (coordinate normalizzate u,v sul viewBox 200×340) e contorno di sfondo */
+const SKI_PRESETS = {
+  dritto: { label: "Pendio Dritto", fall: [[.5, .05], [.5, .5], [.5, .93]], bands: [[0, 1, 30]] },
+  diagonale: { label: "Pendenza Diagonale con Contropendenza", fall: [[.26, .05], [.42, .2], [.62, .38], [.74, .52], [.68, .68], [.52, .82], [.4, .93]], bands: [[0, 1, 28]] },
+  muro: { label: "Muro con Cambio di Pendenza", fall: [[.54, .05], [.5, .3], [.46, .5], [.44, .7], [.5, .93]], bands: [[0, .36, 30], [.36, .62, 9], [.62, 1, 30]] }
+};
+function kqSkiCurve(pts, per = 18) {
+  const P = [pts[0], ...pts, pts[pts.length - 1]], out = [];
+  for (let i = 1; i < P.length - 2; i++) for (let t = 0; t < per; t++) {
+    const u = t / per, u2 = u * u, u3 = u2 * u, f = (a, b, c, d) => .5 * ((2 * b) + (-a + c) * u + (2 * a - 5 * b + 4 * c - d) * u2 + (-a + 3 * b - 3 * c + d) * u3);
+    out.push([f(P[i - 1][0], P[i][0], P[i + 1][0], P[i + 2][0]), f(P[i - 1][1], P[i][1], P[i + 1][1], P[i + 2][1])]);
+  }
+  out.push(pts[pts.length - 1]);
+  for (let i = 1; i < out.length; i++) if (out[i][1] < out[i - 1][1]) out[i][1] = out[i - 1][1];
+  return out;
+}
+/* linea di massima pendenza: posizione u e tangente (verso valle) a quota v */
+function kqSkiFall(id) {
+  const pre = SKI_PRESETS[id] || SKI_PRESETS.dritto, line = kqSkiCurve(pre.fall);
+  const at = v => {
+    let i = 1; while (i < line.length - 1 && line[i][1] < v) i++;
+    const a = line[i - 1], c = line[i], t = c[1] === a[1] ? 0 : Math.max(0, Math.min(1, (v - a[1]) / (c[1] - a[1])));
+    const dx = (c[0] - a[0]) * SKI_W, dy = (c[1] - a[1]) * SKI_H, L = Math.hypot(dx, dy) || 1;
+    return { u: a[0] + (c[0] - a[0]) * t, tx: dx / L, ty: dy / L };
   };
-  kqBindSki($("#board", v), b);
+  return { line, at, pre };
+}
+const skiXY = p => [p[0] * SKI_W, p[1] * SKI_H];
+function kqSki(b) {
+  if (!b.ski) b.ski = { kind: "sl", preset: "dritto", gates: [], colorMode: "auto", tool: "gate", green: true, red: true };
+  const k = b.ski;
+  if (!Array.isArray(k.free)) k.free = (b.pts && b.pts.length > 1) ? [b.pts] : [];
+  return k;
+}
+function kqSkiNextColor(k) { return k.colorMode === "red" ? "r" : k.colorMode === "blue" ? "b" : (k.gates.length % 2 ? "b" : "r"); }
+/* calcola le due linee e i punti di cambio spigolo dai pali posati */
+function kqSkiLines(k) {
+  const F = kqSkiFall(k.preset), gs = k.kind === "gs", gates = [...k.gates].sort((a, b) => a.v - b.v);
+  if (!gates.length) return { green: "", red: "", changes: [], F };
+  const half = gs ? .05 : 0, inner = gs ? half * .45 : .028;
+  const apex = (g, i, late) => {
+    const fx = F.at(g.v).u; let s = Math.sign(g.u - fx); if (!s) s = i % 2 ? 1 : -1;
+    return { s, p: late ? [g.u - s * inner * .4, g.v + .04] : [g.u - s * inner, g.v - .05] };
+  };
+  const build = late => {
+    const A = gates.map((g, i) => apex(g, i, late));
+    for (let i = 1; i < A.length; i++) if (A[i].p[1] < A[i - 1].p[1] + .025) A[i].p[1] = A[i - 1].p[1] + .025;
+    const top = .045, bot = .955;
+    return { A, pts: [[F.at(top).u, top], ...A.map(a => a.p), [F.at(bot).u, bot]] };
+  };
+  const g = build(false), r = build(true), f = n => n.toFixed(1);
+  const tan = p => { const t = F.at(Math.min(.97, Math.max(.03, p[1]))); return [t.tx, t.ty]; };
+  let gd = "", segs = [];
+  g.pts.forEach((p, i) => {
+    const P = skiXY(p);
+    if (!i) { gd = `M${f(P[0])} ${f(P[1])}`; return; }
+    const Q = skiXY(g.pts[i - 1]), h = .45 * Math.hypot(P[0] - Q[0], P[1] - Q[1]), t0 = tan(g.pts[i - 1]), t1 = tan(p);
+    const c1 = [Q[0] + t0[0] * h, Q[1] + t0[1] * h], c2 = [P[0] - t1[0] * h, P[1] - t1[1] * h];
+    gd += ` C${f(c1[0])} ${f(c1[1])} ${f(c2[0])} ${f(c2[1])} ${f(P[0])} ${f(P[1])}`;
+    segs.push([Q, c1, c2, P]);
+  });
+  const changes = [];
+  segs.forEach((sg, i) => {
+    if (i === 0 || i === segs.length - 1) return;
+    const bez = t => { const m = 1 - t; return [0, 1].map(d => m * m * m * sg[0][d] + 3 * m * m * t * sg[1][d] + 3 * m * t * t * sg[2][d] + t * t * t * sg[3][d]); };
+    let prev = null;
+    for (let n = 0; n <= 60; n++) {
+      const P = bez(n / 60), side = P[0] - F.at(P[1] / SKI_H).u * SKI_W;
+      if (prev != null && Math.sign(side) !== Math.sign(prev.side) && prev.side !== 0) {
+        const dx = P[0] - prev.P[0], dy = P[1] - prev.P[1], L = Math.hypot(dx, dy) || 1;
+        changes.push({ x: P[0], y: P[1], nx: -dy / L, ny: dx / L }); break;
+      }
+      prev = { P, side };
+    }
+  });
+  let rd = "";
+  r.pts.forEach((p, i) => {
+    const P = skiXY(p);
+    if (!i) { rd = `M${f(P[0])} ${f(P[1])}`; return; }
+    const Q = skiXY(r.pts[i - 1]);
+    if (i === r.pts.length - 1) { rd += ` L${f(P[0])} ${f(P[1])}`; return; }
+    const N = skiXY(r.pts[i + 1]), l1 = Math.hypot(P[0] - Q[0], P[1] - Q[1]) || 1, l2 = Math.hypot(N[0] - P[0], N[1] - P[1]) || 1, tr = 9;
+    const a = [P[0] - (P[0] - Q[0]) / l1 * Math.min(tr, l1 / 2), P[1] - (P[1] - Q[1]) / l1 * Math.min(tr, l1 / 2)];
+    const c = [P[0] + (N[0] - P[0]) / l2 * Math.min(tr, l2 / 2), P[1] + (N[1] - P[1]) / l2 * Math.min(tr, l2 / 2)];
+    rd += ` L${f(a[0])} ${f(a[1])} Q${f(P[0])} ${f(P[1])} ${f(c[0])} ${f(c[1])}`;
+  });
+  return { green: gd, red: rd, changes, F };
+}
+function kqSkiGateSVG(g, n, kind) {
+  const [x, y] = skiXY([g.u, g.v]), col = g.c === "b" ? "#3b9dff" : "#ff4d4d", ol = "#0d1a26";
+  if (kind === "gs") {
+    const w = 10, t = 17;
+    return `<g class="gate gate-${g.c}" data-gate="${n}"><path d="M${x - w} ${y}V${y - t}M${x + w} ${y}V${y - t}" stroke="${ol}" stroke-width="4.4" stroke-linecap="round"/>
+      <path d="M${x - w} ${y}V${y - t}M${x + w} ${y}V${y - t}" stroke="#e8eef6" stroke-width="2.2" stroke-linecap="round"/>
+      <rect x="${x - w}" y="${y - t}" width="${2 * w}" height="9" fill="${col}" stroke="${ol}" stroke-width=".8"/>
+      <circle cx="${x - w}" cy="${y}" r="2.4" fill="${col}" stroke="${ol}" stroke-width=".8"/><circle cx="${x + w}" cy="${y}" r="2.4" fill="${col}" stroke="${ol}" stroke-width=".8"/>
+      <text x="${x}" y="${y - t - 2.5}" class="gate-n">${n + 1}</text></g>`;
+  }
+  return `<g class="gate gate-${g.c}" data-gate="${n}"><path d="M${x} ${y}L${x + .8} ${y - 5}" stroke="${ol}" stroke-width="4.2" stroke-linecap="round"/><path d="M${x + .8} ${y - 5}L${x + 3.6} ${y - 19}" stroke="${ol}" stroke-width="4.4" stroke-linecap="round"/>
+    <path d="M${x} ${y}L${x + .8} ${y - 5}" stroke="#e8eef6" stroke-width="2" stroke-dasharray="1.2 1" stroke-linecap="round"/><path d="M${x + .8} ${y - 5}L${x + 3.6} ${y - 19}" stroke="${col}" stroke-width="2.6" stroke-linecap="round"/>
+    <circle cx="${x}" cy="${y}" r="2.6" fill="${ol}" stroke="${col}" stroke-width="1.2"/><text x="${x + 6.5}" y="${y - 12}" class="gate-n">${n + 1}</text></g>`;
+}
+function kqSkiInner(b) {
+  const k = kqSki(b), L = kqSkiLines(k), F = L.F, id = k.preset;
+  const bg = id === "diagonale" ? `<linearGradient id="sk-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#32597d"/><stop offset="1" stop-color="#1b3550"/></linearGradient>`
+    : id === "muro" ? `<linearGradient id="sk-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#335a7e"/><stop offset=".34" stop-color="#2b4d6f"/><stop offset=".4" stop-color="#173149"/><stop offset=".6" stop-color="#14293f"/><stop offset=".66" stop-color="#2a4c6d"/><stop offset="1" stop-color="#335a7e"/></linearGradient>`
+    : `<linearGradient id="sk-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2d4f72"/><stop offset="1" stop-color="#1d3a58"/></linearGradient>`;
+  let contours = "";
+  F.pre.bands.forEach(([v0, v1, sp]) => {
+    for (let y = Math.max(20, v0 * SKI_H + sp / 2); y < Math.min(300, v1 * SKI_H); y += sp) {
+      const t = F.at(y / SKI_H), cx = t.u * SKI_W, nx = -t.ty, ny = t.tx;
+      contours += `<line x1="${(cx - nx * 110).toFixed(1)}" y1="${(y - ny * 110).toFixed(1)}" x2="${(cx + nx * 110).toFixed(1)}" y2="${(y + ny * 110).toFixed(1)}"/>`;
+    }
+  });
+  const fall = F.line.map((p, i) => `${i ? "L" : "M"}${(p[0] * SKI_W).toFixed(1)} ${(p[1] * SKI_H).toFixed(1)}`).join(" ");
+  const chev = [.14, .3, .46, .62, .78, .9].map(v => { const t = F.at(v), x = t.u * SKI_W, y = v * SKI_H, nx = -t.ty, ny = t.tx;
+    return `<path d="M${(x - nx * 4 - t.tx * 4).toFixed(1)} ${(y - ny * 4 - t.ty * 4).toFixed(1)}L${(x + t.tx * 3).toFixed(1)} ${(y + t.ty * 3).toFixed(1)}L${(x + nx * 4 - t.tx * 4).toFixed(1)} ${(y + ny * 4 - t.ty * 4).toFixed(1)}"/>`; }).join("");
+  const extra = id === "diagonale" ? `<polygon points="150,160 186,150 186,262 138,250" fill="rgba(255,255,255,.07)" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 3"/><text x="163" y="214" class="sk-note" text-anchor="middle">contro-</text><text x="163" y="223" class="sk-note" text-anchor="middle">pendenza</text>`
+    : id === "muro" ? `<line x1="12" x2="188" y1="${.36 * SKI_H}" y2="${.36 * SKI_H}" class="sk-cut"/><line x1="12" x2="188" y1="${.62 * SKI_H}" y2="${.62 * SKI_H}" class="sk-cut"/><text x="16" y="${.36 * SKI_H - 3}" class="sk-note">cambio di pendenza</text><text x="16" y="${.62 * SKI_H + 9}" class="sk-note">cambio di pendenza</text><text x="184" y="${.5 * SKI_H}" class="sk-note" text-anchor="end">muro</text>` : "";
+  const gates = [...k.gates].map((g, i) => ({ g, i })).sort((a, c) => a.g.v - c.g.v);
+  const free = k.free.map(s => `<path class="sk-free" d="${s.map((p, i) => `${i ? "L" : "M"}${(p[0] * SKI_W).toFixed(1)} ${(p[1] * SKI_H).toFixed(1)}`).join(" ")}"/>`).join("");
+  const ch = L.changes.map(c => `<g class="sk-chg"><circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="3.4"/><line x1="${(c.x - c.nx * 7).toFixed(1)}" y1="${(c.y - c.ny * 7).toFixed(1)}" x2="${(c.x + c.nx * 7).toFixed(1)}" y2="${(c.y + c.ny * 7).toFixed(1)}"/>
+    <text x="${(c.x + (c.x > 100 ? -8 : 8)).toFixed(1)}" y="${(c.y + 2).toFixed(1)}" text-anchor="${c.x > 100 ? "end" : "start"}">cambio spigolo</text></g>`).join("");
+  return `<defs>${bg}<clipPath id="sk-clip"><rect x="10" y="14" width="180" height="292" rx="14"/></clipPath></defs>
+    <rect width="${SKI_W}" height="${SKI_H}" fill="#0d1a26"/>
+    <rect x="10" y="14" width="180" height="292" rx="14" fill="url(#sk-bg)"/>
+    <g clip-path="url(#sk-clip)"><g class="sk-cont">${contours}</g>${extra}
+    <path id="sk-fall" d="${fall}" class="sk-fall"/><g class="sk-chev">${chev}</g>
+    ${k.red && L.red ? `<path id="sk-red" class="sk-line sk-late" d="${L.red}"/>` : ""}${k.green && L.green ? `<path id="sk-green" class="sk-line sk-ideal" d="${L.green}"/>` : ""}
+    ${free}</g>
+    <text x="100" y="11" text-anchor="middle" class="sk-cap">LINEA DI MASSIMA PENDENZA (tratteggio)</text>
+    ${k.green && L.green ? ch : ""}${gates.map(({ g, i }) => kqSkiGateSVG(g, i, k.kind)).join("")}
+    <polygon points="30,314 170,314 156,334 44,334" fill="#243a50"/><text x="100" y="327" text-anchor="middle" class="sk-cap2">${esc(SKI_KINDS[k.kind].toUpperCase())} · ${esc(F.pre.label.toUpperCase())}</text>`;
 }
 function kqSkiSVG(b) {
-  const pts = b.pts || [];
-  const d = pts.length ? pts.map((p, i) => `${i ? "L" : "M"} ${p[0] * 200} ${p[1] * 300}`).join(" ") : "";
-  return `<svg id="board" viewBox="0 0 200 340">
-    <rect width="200" height="340" fill="#0c1628"/>
-    <polygon points="36,16 164,16 150,300 50,300" fill="#1e3a5f"/>
-    <line x1="100" y1="18" x2="100" y2="298" stroke="#93a3c2" stroke-dasharray="4 4" stroke-width="1"/>
-    <text x="100" y="12" text-anchor="middle" fill="#93a3c2" font-size="8">LINEA DI MASSIMA PENDENZA</text>
-    <path id="ski-path" d="${d}" fill="none" stroke="#c8f53a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-    ${pts.map(p => `<circle cx="${p[0] * 200}" cy="${p[1] * 300}" r="4" fill="#22d3ee"/>`).join("")}
-    <polygon points="30,318 170,318 150,334 50,334" fill="#334155"/>
-    <text x="100" y="330" text-anchor="middle" fill="#eef3ff" font-size="8">PROFILO SCHEMATICO</text></svg>`;
+  return `<svg id="board" viewBox="0 0 ${SKI_W} ${SKI_H}" preserveAspectRatio="xMidYMid meet" aria-label="Lavagna sci: pendio e pali">${kqSkiInner(b)}</svg>`;
 }
-function kqBindSki(svg, b) {
-  const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return [Math.max(0.08, Math.min(0.92, q.x / 200)), Math.max(0.04, Math.min(0.9, q.y / 340))]; };
-  let on = false;
-  svg.addEventListener("pointerdown", e => { on = true; b.pts = [pt(e)]; b.demo = false; svg.setPointerCapture(e.pointerId); e.preventDefault(); });
-  svg.addEventListener("pointermove", e => {
-    if (!on) return; const p = pt(e), last = b.pts[b.pts.length - 1];
-    if (Math.hypot(p[0] - last[0], p[1] - last[1]) > 0.03) b.pts.push(p);
-    const path = $("#ski-path", svg); if (path) path.setAttribute("d", b.pts.map((q, i) => `${i ? "L" : "M"} ${q[0] * 200} ${q[1] * 300}`).join(" "));
+function kqSkiHTML(v, b) {
+  const k = kqSki(b);
+  const chip = (cls, attr, label, on) => `<button type="button" class="chip ${on ? "on" : ""} ${cls}" ${attr} aria-pressed="${!!on}">${label}</button>`;
+  const main = `<div class="dock-row ski-main">
+      ${chip("", 'data-skitool="gate"', "Posa pali", k.tool === "gate")}${chip("", 'data-skitool="free"', "Disegno libero", k.tool === "free")}
+      <button type="button" class="btn sm" id="s-undo">Cancella ultimo palo</button></div>`;
+  const body = `<h4 class="dock-t">Tipo di tracciato</h4>
+      <div class="seg full" id="s-kind">${Object.entries(SKI_KINDS).map(([id, l]) => `<button type="button" class="${k.kind === id ? "on" : ""}" data-kind="${id}">${l}</button>`).join("")}</div>
+      <h4 class="dock-t">Pendio</h4>
+      <div class="chips" id="s-preset">${Object.entries(SKI_PRESETS).map(([id, p]) => chip("", `data-preset="${id}"`, esc(p.label), k.preset === id)).join("")}</div>
+      <h4 class="dock-t">Colore del prossimo palo</h4>
+      <div class="seg full" id="s-col">${[["auto", "Alterna"], ["red", "Rosso"], ["blue", "Blu"]].map(([id, l]) => `<button type="button" class="${k.colorMode === id ? "on" : ""}" data-col="${id}">${l}</button>`).join("")}</div>
+      <h4 class="dock-t">Linee</h4>
+      <div class="chips">${chip("", 'id="s-green"', '<i class="lg ideal"></i>Linea ideale', k.green)}${chip("", 'id="s-red"', '<i class="lg late"></i>Linea in ritardo', k.red)}</div>
+      <div class="btns" style="margin-top:12px"><button type="button" class="btn sm danger" id="s-reset">Reset</button><button type="button" class="btn sm ghost" id="s-clr">Pulisci disegno</button></div>
+      <p class="small mut" style="margin:10px 0 0">Tocca il pendio per posare un palo: il colore si alterna da solo. La linea verde passa a monte di ogni porta e inizia l'arco prima del palo; la rossa gira tardi, con l'apice sotto il palo. Il segno «cambio spigolo» è dove la verde attraversa la linea di massima pendenza. È uno schema geometrico, non il rilievo di una pista reale.</p>`;
+  v.innerHTML = `<div class="card tight">${kqBoardBar("sci")}
+    <p class="small mut" style="margin:8px 0 0" id="s-info"></p></div>
+    <div class="boardwrap stick" id="s-wrap">${kqSkiSVG(b)}</div>
+    ${kqDockHTML("s-dock", main, body)}`;
+  const svg = $("#board", v), dock = $("#s-dock", v);
+  const fit = () => kqFitBox(svg, dock, [SKI_W / SKI_H], { x: 16, y: 18 });
+  KQM.fit = fit; kqDockBind(dock, fit); fit();
+  kqBindSki(svg, b, v);
+}
+function kqBindSki(svg, b, v) {
+  const k = kqSki(b);
+  const info = () => { const el = $("#s-info", v); if (el) el.textContent = `${SKI_KINDS[k.kind]} · ${SKI_PRESETS[k.preset].label} · ${k.gates.length} ${k.gates.length === 1 ? "palo" : "pali"}${k.gates.length ? ` · prossimo: ${kqSkiNextColor(k) === "r" ? "rosso" : "blu"}` : ""}`; };
+  const redraw = () => { svg.innerHTML = kqSkiInner(b); kqInkSync(svg, b); info(); save(); };
+  const seg = (sel, attr, fn) => $$(`${sel} [${attr}]`, v).forEach(x => x.onclick = () => { fn(x.dataset[attr.replace("data-", "")]); $$(`${sel} [${attr}]`, v).forEach(y => { y.classList.toggle("on", y === x); y.setAttribute && y.getAttribute("aria-pressed") != null && y.setAttribute("aria-pressed", String(y === x)); }); redraw(); });
+  seg("#s-kind", "data-kind", x => { k.kind = x; });
+  seg("#s-preset", "data-preset", x => { k.preset = x; });
+  seg("#s-col", "data-col", x => { k.colorMode = x; });
+  $$("[data-skitool]", v).forEach(x => x.onclick = () => { k.tool = x.dataset.skitool; $$("[data-skitool]", v).forEach(y => { y.classList.toggle("on", y === x); y.setAttribute("aria-pressed", String(y === x)); }); save(); });
+  const tog = (id, key) => { const el = $(id, v); el.onclick = () => { k[key] = !k[key]; el.classList.toggle("on", k[key]); el.setAttribute("aria-pressed", String(k[key])); redraw(); }; };
+  tog("#s-green", "green"); tog("#s-red", "red");
+  $("#s-undo", v).onclick = () => { if (!k.gates.length) { toast("Nessun palo da cancellare"); return; } k.gates.pop(); redraw(); };
+  $("#s-reset", v).onclick = () => { if (k.gates.length || k.free.length || (b.ink || []).length) { if (!confirm("Cancellare pali, linee e disegni di questa lavagna?")) return; } k.gates = []; k.free = []; b.pts = []; b.ink = []; k.colorMode = "auto"; $$("#s-col [data-col]", v).forEach(y => y.classList.toggle("on", y.dataset.col === "auto")); redraw(); kqBoardExtras(v, b); };
+  $("#s-clr", v).onclick = () => { k.free = []; b.pts = []; redraw(); };
+  const pt = e => { const p = svg.createSVGPoint(); p.x = e.clientX; p.y = e.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return [Math.max(.07, Math.min(.93, q.x / SKI_W)), Math.max(.06, Math.min(.9, q.y / SKI_H))]; };
+  let st = null;
+  svg.addEventListener("pointerdown", e => {
+    if (e.target.closest && e.target.closest("#ink") && false) return;
+    const p = pt(e); st = { x: e.clientX, y: e.clientY, stroke: null };
+    if (k.tool === "free") { st.stroke = [p]; k.free.push(st.stroke); }
+    try { svg.setPointerCapture(e.pointerId); } catch (_) { }
+    e.preventDefault();
   });
-  const end = () => { if (!on) return; on = false; save(); renderBoard(); };
-  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
+  svg.addEventListener("pointermove", e => {
+    if (!st || !st.stroke) return; const p = pt(e), l = st.stroke[st.stroke.length - 1];
+    if (Math.hypot(p[0] - l[0], p[1] - l[1]) > .012) { st.stroke.push(p); svg.innerHTML = kqSkiInner(b); kqInkSync(svg, b); }
+  });
+  const end = e => {
+    if (!st) return; const s = st; st = null;
+    if (k.tool === "free") { if (s.stroke.length < 2) k.free = k.free.filter(x => x !== s.stroke); redraw(); return; }
+    if (e && e.type === "pointerup" && Math.hypot(e.clientX - s.x, e.clientY - s.y) < 10) {
+      const p = pt(e); k.gates.push({ u: +p[0].toFixed(4), v: +p[1].toFixed(4), c: kqSkiNextColor(k) }); redraw();
+    }
+  };
+  svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", () => { st = null; });
+  kqBoardExtras(v, b);
+  info();
 }
 function kqBellHTML(v, b) {
   const modes = [["swing", "Swing"], ["tgu", "TGU"], ["snatch", "Snatch"]];
@@ -872,6 +1090,7 @@ function kqBellHTML(v, b) {
   $$("[data-tool]", v).forEach(x => x.onclick = () => { b.tool = x.dataset.tool; b.bell = kqBellPath(b.tool)[0]; save(); renderBoard(); });
   kqBindBell($("#board", v), b);
   kqBellMsg(b);
+  kqBoardExtras(v, b);
 }
 function kqBellPath(mode) {
   if (mode === "tgu") return [[.62, .82], [.62, .62], [.58, .42], [.55, .22], [.52, .1]];
@@ -894,7 +1113,7 @@ function kqBellSVG(b) {
   const d = pts.map((p, i) => `${i ? "L" : "M"} ${p[0] * 200} ${p[1] * 280}`).join(" ");
   const ok = kqBellDist(b.tool, b.bell) < 0.07;
   return `<svg id="board" viewBox="0 0 200 280">
-    <rect width="200" height="280" fill="#0c1628"/>
+    <rect width="200" height="280" fill="#0d1a26"/>
     <g stroke="#22345a" stroke-width="8" fill="none" stroke-linecap="round">
       <line x1="120" y1="70" x2="118" y2="40"/><line x1="118" y1="78" x2="116" y2="140"/><line x1="116" y1="140" x2="124" y2="190"/><line x1="124" y1="190" x2="120" y2="250"/>
       <line x1="118" y1="86" x2="150" y2="100"/></g>
@@ -936,7 +1155,7 @@ function kqSpecsHTML() {
     <p class="small mut">Elenco vuoto finché non aggiungi tu i contatti. Nessun nominativo di esempio e nessun badge di verifica: la rubrica è la tua.</p>
     <div class="alert yellow"><span>⚕️</span><div>KinetIQ non sostituisce il medico, il fisioterapista o il coach. Il tasto WhatsApp prepara solo un messaggio.</div></div>
     <label class="lbl">Sport</label>
-    <div class="chips" data-group="sp-sport"><button type="button" class="chip ${sport === "all" ? "on" : ""}" data-val="all">Tutti</button>${SPORT_IDS.map(id => `<button type="button" class="chip ${sport === id ? "on" : ""}" data-val="${id}">${SPORT_ICON[id] || ""} ${esc(SPORTS[id])}</button>`).join("")}</div>
+    <div class="chips" data-group="sp-sport"><button type="button" class="chip ${sport === "all" ? "on" : ""}" data-val="all">Tutti</button>${SPORT_IDS.map(id => `<button type="button" class="chip ${sport === id ? "on" : ""}" data-val="${id}">${sportIcon(id, 18)}${esc(SPORTS[id])}</button>`).join("")}</div>
     <label class="lbl" for="sp-city">Città</label>
     <input class="field" id="sp-city" list="sp-cities" placeholder="Filtra per città" value="${esc(KQ.specCity || "")}">
     <datalist id="sp-cities">${cities.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
@@ -947,12 +1166,13 @@ function kqSpecsHTML() {
       <div class="small">${esc(s.title || "")}</div>
       <div class="small mut">${(s.sports || []).map(id => SPORTS[id] || id).join(", ")} · ${esc(s.city || "")} · ${(s.modes || []).map(m => m === "video" ? "video consulto" : "studio").join(" / ")}</div>
       <div class="btns" style="margin-top:8px"><a class="btn sm pri" href="${esc(kqWaLink(s.phone, KQ.waZone ? kqReport(KQ.waZone) : ""))}" target="_blank" rel="noopener">WhatsApp</a>
+        ${kqPhone(s.phone).length >= 8 ? `<a class="btn sm" href="${esc(kqTelLink(s.phone))}" aria-label="Chiama ${esc(s.name)}">Chiama</a>` : ""}
         <button type="button" class="btn sm danger" data-del="${esc(s.id)}">Elimina</button></div></div>`).join("")
       : `<div class="empty">Aggiungi maestro, fisioterapista o preparatore. I filtri per sport e città compariranno quando ci saranno contatti.</div>`}
     </div>${DISCLAIMER}</div>`;
 }
 function kqSpecForm() {
-  const sports = SPORT_IDS.map(id => `<button type="button" class="chip" data-sp="${id}">${SPORT_ICON[id] || ""} ${esc(SPORTS[id])}</button>`).join("");
+  const sports = SPORT_IDS.map(id => `<button type="button" class="chip" data-sp="${id}">${sportIcon(id, 18)}${esc(SPORTS[id])}</button>`).join("");
   return `<div class="pvblock"><label class="lbl" for="sf-name">Nome</label><input class="field" id="sf-name" maxlength="80" placeholder="Nome e cognome">
     <label class="lbl" for="sf-title">Qualifica</label><input class="field" id="sf-title" maxlength="80" placeholder="es. Maestro, fisioterapista, chinesiologo">
     <label class="lbl">Ruolo</label><div class="chips" id="sf-role">${KQ_ROLES.map(([id, l], i) => `<button type="button" class="chip ${i === 0 ? "on" : ""}" data-role="${id}">${l}</button>`).join("")}</div>

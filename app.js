@@ -16,7 +16,12 @@ const fmtDate = s => { const [y, m, d] = s.split("-").map(Number); return new Da
 const fmtTime = s => `${Math.floor(s / 60)}:${pad2(Math.max(0, Math.ceil(s)) % 60)}`;
 const SPORT_IDS = Object.keys(SPORTS);
 const isCourt = sp => COURT_SPORTS.includes(sp);
-const SPORT_ICON = { tennis: "🎾", pickleball: "🏓", padel: "🥎", running: "🏃", atletica: "🏋️", golf: "⛳", sci: "⛷️", kettlebell: "🔔" };
+/* Icone sport: lo sprite SVG è inline in index.html (<symbol id="ic-…">) e prende il colore dal testo (currentColor). */
+const SPORT_ICON_IDS = ["padel", "tennis", "pickleball", "running", "sci", "golf", "kettlebell", "atletica"];
+function sportIcon(id, size = 18) {
+  if (!SPORT_ICON_IDS.includes(id)) return "";
+  return `<svg class="sp-ic" width="${size}" height="${size}" aria-hidden="true" focusable="false"><use href="#ic-${id}"/></svg>`;
+}
 const LEVELS = ["Base", "Intermedio"];
 /* Foster CR-10, descrizioni in italiano. Il numero salvato resta 1-10, come nelle sessioni già registrate. */
 const RPE_LABELS = ["", "Molto leggero", "Leggero", "Moderato", "Un po' duro", "Duro", "Duro, sopra il comodo", "Molto duro", "Molto duro, poche ripetizioni ancora", "Quasi massimale", "Massimale"];
@@ -33,7 +38,7 @@ const DEFAULT = () => ({
   mode: "player", sport: "tennis", sessions: [], draftPains: {}, boards: {},
   hideRisky: true, drillSport: "all", athletes: null, lastRoutine: null,
   prev: null, prevSess: null, prevLog: [], recLog: [], therapy: [],
-  specialists: [], fb: { vibe: true, voice: true, tone: true }
+  specialists: [], drillLog: [], fb: { vibe: true, voice: true, tone: true }
 });
 let S = load();
 function load() {
@@ -44,6 +49,7 @@ function load() {
       s.fb = Object.assign({ vibe: true, voice: true, tone: true }, o.fb || {});
       if (!Array.isArray(s.specialists)) s.specialists = [];
       if (!Array.isArray(s.sessions)) s.sessions = [];
+      if (!Array.isArray(s.drillLog)) s.drillLog = [];
       return s;
     }
   } catch (e) { }
@@ -174,7 +180,7 @@ function closeSheet() { $("#sheet").hidden = true; $("#sheet-body").innerHTML = 
 function sportChips(sel, name = "sport", withAll = false) {
   const items = (withAll ? [["all", "Tutti"]] : []).concat(SPORT_IDS.map(id => [id, SPORTS[id]]));
   return `<div class="chips" data-group="${name}">${items.map(([id, l]) =>
-    `<button type="button" class="chip ${sel === id ? "on" : ""}" data-val="${id}">${id !== "all" ? SPORT_ICON[id] + " " : ""}${l}</button>`).join("")}</div>`;
+    `<button type="button" class="chip ${sel === id ? "on" : ""}" data-val="${id}">${id !== "all" ? sportIcon(id, 18) : ""}${l}</button>`).join("")}</div>`;
 }
 function bindChips(root, name, cb) {
   $$(`[data-group="${name}"] .chip`, root).forEach(b => b.onclick = () => {
@@ -242,7 +248,7 @@ function renderToday() {
     </div>
     ${acwrCard(info)}
     <div class="card"><h3>Ultime sessioni</h3>
-      ${recent.length ? `<ul class="list">${recent.map(s => `<li><span class="dot" style="background:var(--acc2)"></span><div class="grow"><div class="t">${SPORT_ICON[s.sport] || ""} ${esc(SPORTS[s.sport] || s.sport)} · ${s.dur} min${s.km ? ` · ${s.km} km · ${paceTxt(s.km, s.dur)}` : ""} · RPE ${s.rpe}</div>
+      ${recent.length ? `<ul class="list">${recent.map(s => `<li><span class="dot" style="background:var(--acc2)"></span><div class="grow"><div class="t">${sportIcon(s.sport, 18)} ${esc(SPORTS[s.sport] || s.sport)} · ${s.dur} min${s.km ? ` · ${s.km} km · ${paceTxt(s.km, s.dur)}` : ""} · RPE ${s.rpe}</div>
         <div class="s">${fmtDate(s.date)} · carico ${s.dur * s.rpe}${(s.pains || []).length ? " · " + s.pains.map(p => `${esc(ZONES[p.zone]?.label)} ${p.sev}/10`).join(", ") : ""}</div></div>
         <button type="button" class="icon-btn" data-del="${s.id}" aria-label="Elimina">✕</button></li>`).join("")}</ul>`
         : `<div class="empty">Nessuna sessione ancora. Registra la prima qui sopra oppure <button type="button" class="btn sm ghost" id="demo">carica dati di esempio</button></div>`}
@@ -332,7 +338,7 @@ function renderCoach() {
       <div>${rows.map(({ a, i }) => { const [zl, zc] = ZONE_TXT[i.zone]; const pains = Object.entries(i.active);
         return `<button type="button" class="athlete" data-ath="${a.id}"><span class="avatar">${esc(a.name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase())}</span>
           <span class="grow" style="flex:1;min-width:0"><span class="t" style="display:block;font-weight:700">${esc(a.name)} ${a.demo ? '<span class="pill grey">esempio</span>' : ""}</span>
-          <span class="s small mut">${SPORT_ICON[a.sport] || ""} ${esc(SPORTS[a.sport] || "")} · ${i.insufficient ? `<span class="insuff">${INSUFF_TXT}</span>` : "ACWR " + (i.ratio == null ? "–" : i.ratio.toFixed(2))}${pains.length ? " · " + pains.map(([z, p]) => `${esc(ZONES[z].label)} ${p.sev}/10`).join(", ") : ""}</span></span>
+          <span class="s small mut">${sportIcon(a.sport, 16)} ${esc(SPORTS[a.sport] || "")} · ${i.insufficient ? `<span class="insuff">${INSUFF_TXT}</span>` : "ACWR " + (i.ratio == null ? "–" : i.ratio.toFixed(2))}${pains.length ? " · " + pains.map(([z, p]) => `${esc(ZONES[z].label)} ${p.sev}/10`).join(", ") : ""}</span></span>
           <span class="pill ${zc}">${zl}</span></button>`; }).join("") || `<div class="empty">Nessun atleta.</div>`}</div></div>
     ${DISCLAIMER}`;
   $("#add-ath").onclick = () => athleteForm();
@@ -352,7 +358,7 @@ function athleteSheet(id) {
   const a = S.athletes.find(x => x.id === id); if (!a) return;
   const i = analyze(a.sessions); const rt = buildRoutine(i);
   const okDrills = DRILLS.filter(d => d.sport === a.sport && !d.zones.some(z => i.riskyGroups.includes(z)));
-  openSheet(`<div class="row between"><h2>${esc(a.name)}</h2><span class="pill">${SPORT_ICON[a.sport]} ${esc(SPORTS[a.sport])}</span></div>
+  openSheet(`<div class="row between"><h2>${esc(a.name)}</h2><span class="pill">${sportIcon(a.sport, 18)} ${esc(SPORTS[a.sport])}</span></div>
     ${alertsHTML(i)}${acwrCard(i, "Carico")}
     <div class="card tight"><h3>Assegnazioni</h3>
       ${a.assigned.length ? `<ul class="list">${a.assigned.map((x, k) => `<li><div class="grow"><div class="t">${esc(x.title)}</div><div class="s">${esc(x.kind)} · ${fmtDate(x.date)}</div></div><button type="button" class="icon-btn" data-unas="${k}">✕</button></li>`).join("")}</ul>` : `<p class="small mut">Nessuna assegnazione.</p>`}
@@ -480,38 +486,56 @@ function painSheet(z) {
 }
 
 /* ================= DRILL ================= */
+/* Dettaglio completo di un drill: usato nell'elenco (desktop) e nel foglio che si apre toccando la scheda (mobile). */
+function drillDetailHTML(d, info) {
+  const r = d.zones.filter(z => info.riskyGroups.includes(z));
+  return `${r.length ? `<div class="alert red"><span>⚠️</span><div>Questo drill sollecita una zona in cui hai segnalato fastidio. Meglio rimandarlo e fare la routine di scarico.</div></div>` : ""}
+    <div class="seg full layers" role="group"><button type="button" class="on" data-l="tac">${isCourt(d.sport) ? "Tattica e bersagli" : "Obiettivo e seduta"}</button><button type="button" data-l="tec">Biomeccanica</button></div>
+    <div class="layer" data-layer="tac"><h4>Obiettivo</h4><p>${esc(d.tactic.goal)}</p><h4>Bersaglio</h4><p>${esc(d.tactic.target)}</p><h4>Esecuzione</h4><ol>${d.tactic.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
+      ${isCourt(d.sport) ? `<div class="mini">${courtSVG(d.sport, d.board ? boardFromDrill(d) : null, true)}</div>` : ""}</div>
+    <div class="layer" data-layer="tec" hidden><h4>Catena cinetica</h4><ul>${d.tech.chain.map(s => `<li>${esc(s)}</li>`).join("")}</ul><h4>Errori che sovraccaricano</h4><ul>${d.tech.faults.map(s => `<li>${esc(s)}</li>`).join("")}</ul>
+      <h4>Zone sollecitate</h4><div class="chips">${d.zones.map(z => `<span class="pill ${info.riskyGroups.includes(z) ? "red" : ""}">${esc(GROUP_LABELS[z])}</span>`).join("")}</div></div>
+    ${isCourt(d.sport) ? `<div class="btns" style="margin-top:12px"><button type="button" class="btn sm" data-board="${d.id}">Apri in lavagna</button></div>` : ""}`;
+}
+function bindDrillDetail(root) {
+  $$(".layers button", root).forEach(b => b.onclick = () => { $$(".layers button", root).forEach(x => x.classList.toggle("on", x === b)); $$("[data-layer]", root).forEach(l => l.hidden = l.dataset.layer !== b.dataset.l); });
+  $$("[data-board]", root).forEach(b => b.onclick = () => { const d = DRILLS.find(x => x.id === b.dataset.board); S.boards[d.sport] = boardFromDrill(d); S.boardSport = d.sport; save(); closeSheet(); go("lavagna"); toast("Schema caricato in lavagna"); });
+}
 function renderDrills() {
   const v = $("#view-drill"); const info = analyze(S.sessions, S.draftPains);
   const risky = d => d.zones.filter(z => info.riskyGroups.includes(z));
+  const phase = KQ_PHASES.find(p => p.id === KQM.phase) || KQ_PHASES[1];
+  const phSport = S.drillSport !== "all" ? S.drillSport : S.sport;
   let list = DRILLS.filter(d => S.drillSport === "all" || d.sport === S.drillSport);
   const hidden = S.hideRisky ? list.filter(d => risky(d).length).length : 0;
   if (S.hideRisky) list = list.filter(d => !risky(d).length);
-  v.innerHTML = `
-    ${S.mode === "coach" ? plannerCard() : ""}
-    <div class="card tight"><h2>Libreria drill</h2>${sportChips(S.drillSport, "dr-sport", true)}</div>
-    ${S.drillSport === "running" ? paceCard() : ""}${S.drillSport === "atletica" ? periodCard() : ""}
+  const cards = kqIsMobile();
+  const tecnica = `${S.drillSport === "running" ? paceCard() : ""}${S.drillSport === "atletica" ? periodCard() : ""}
     <div class="card tight" ${info.riskyGroups.length || hidden ? "" : "hidden"}>
       ${info.riskyGroups.length ? `<label class="switch"><input type="checkbox" id="hide" ${S.hideRisky ? "checked" : ""}> Nascondi drill che sollecitano zone con fastidio (${info.riskyGroups.map(g => esc(GROUP_LABELS[g])).join(", ")})</label>` : ""}
       ${hidden ? `<p class="small mut">${hidden} drill nascost${hidden === 1 ? "o" : "i"} per proteggere le zone con fastidio.</p>` : ""}</div>
-    ${list.map(d => { const r = risky(d);
-      return `<div class="card drill ${r.length ? "warn" : ""}" data-id="${d.id}"><button type="button" class="hd"><span class="ic">${SPORT_ICON[d.sport]}</span>
+    ${cards ? kqDrillCardsHTML(list, info) : list.map(d => { const r = risky(d);
+      return `<div class="card drill ${r.length ? "warn" : ""}" data-id="${d.id}"><button type="button" class="hd"><span class="ic">${sportIcon(d.sport, 24)}</span>
         <span style="flex:1;min-width:0"><span class="t" style="display:block">${esc(d.title)}</span><span class="meta"><span class="pill">${esc(SPORTS[d.sport])}</span><span class="pill">${esc(d.cat)}</span><span class="pill">${esc(d.level)}</span><span class="pill">${esc(d.time)}</span>${r.length ? `<span class="pill red">Sollecita ${r.map(g => esc(GROUP_LABELS[g].toLowerCase())).join(", ")}</span>` : ""}</span></span>
         <span class="chev">▾</span></button>
-        <div class="bd">${r.length ? `<div class="alert red"><span>⚠️</span><div>Questo drill sollecita una zona in cui hai segnalato fastidio. Meglio rimandarlo e fare la routine di scarico.</div></div>` : ""}
-          <div class="seg full layers" role="group"><button type="button" class="on" data-l="tac">${isCourt(d.sport) ? "Tattica e bersagli" : "Obiettivo e seduta"}</button><button type="button" data-l="tec">Biomeccanica</button></div>
-          <div class="layer" data-layer="tac"><h4>Obiettivo</h4><p>${esc(d.tactic.goal)}</p><h4>Bersaglio</h4><p>${esc(d.tactic.target)}</p><h4>Esecuzione</h4><ol>${d.tactic.steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>
-            ${isCourt(d.sport) ? `<div class="mini">${courtSVG(d.sport, d.board ? boardFromDrill(d) : null, true)}</div>` : ""}</div>
-          <div class="layer" data-layer="tec" hidden><h4>Catena cinetica</h4><ul>${d.tech.chain.map(s => `<li>${esc(s)}</li>`).join("")}</ul><h4>Errori che sovraccaricano</h4><ul>${d.tech.faults.map(s => `<li>${esc(s)}</li>`).join("")}</ul>
-            <h4>Zone sollecitate</h4><div class="chips">${d.zones.map(z => `<span class="pill ${info.riskyGroups.includes(z) ? "red" : ""}">${esc(GROUP_LABELS[z])}</span>`).join("")}</div></div>
-          ${isCourt(d.sport) ? `<div class="btns" style="margin-top:12px"><button type="button" class="btn sm" data-board="${d.id}">Apri in lavagna</button></div>` : ""}</div></div>`; }).join("") || `<div class="empty">Nessun drill disponibile con i filtri attuali.</div>`}`;
+        <div class="bd">${drillDetailHTML(d, info)}</div></div>`; }).join("") || `<div class="empty">Nessun drill disponibile con i filtri attuali.</div>`}`;
+  v.innerHTML = `
+    ${S.mode === "coach" ? plannerCard() : ""}
+    <div class="card tight"><h2>Libreria drill</h2>${sportChips(S.drillSport, "dr-sport", true)}<div style="margin-top:10px">${kqPhaseTabs()}</div></div>
+    ${phase.id === "tecnica" ? tecnica : kqPhaseHTML(phase, phSport)}`;
   bindChips(v, "dr-sport", x => { S.drillSport = x; save(); renderDrills(); });
-  $("#hide") && ($("#hide").onchange = e => { S.hideRisky = e.target.checked; save(); renderDrills(); });
-  $$(".drill", v).forEach(c => {
-    $(".hd", c).onclick = () => c.classList.toggle("open");
-    $$(".layers button", c).forEach(b => b.onclick = () => { $$(".layers button", c).forEach(x => x.classList.toggle("on", x === b)); $$("[data-layer]", c).forEach(l => l.hidden = l.dataset.layer !== b.dataset.l); });
-  });
-  $$("[data-board]", v).forEach(b => b.onclick = () => { const d = DRILLS.find(x => x.id === b.dataset.board); S.boards[d.sport] = boardFromDrill(d); S.boardSport = d.sport; save(); go("lavagna"); toast("Schema caricato in lavagna"); });
+  $$("[data-phase]", v).forEach(b => b.onclick = () => { KQM.phase = b.dataset.phase; renderDrills(); });
   if (S.mode === "coach") bindPlanner(v);
+  if (phase.id !== "tecnica") { kqPhaseBind(v, phase, phSport); return; }
+  $("#hide") && ($("#hide").onchange = e => { S.hideRisky = e.target.checked; save(); renderDrills(); });
+  if (cards) {
+    kqDrillCardsBind(v, list, id => { const d = DRILLS.find(x => x.id === id); if (!d) return;
+      openSheet(`<div class="row between"><h2 class="h-ic">${sportIcon(d.sport, 24)}${esc(d.title)}</h2></div>
+        <div class="meta" style="margin-bottom:8px"><span class="pill">${esc(d.cat)}</span><span class="pill">${esc(d.level)}</span><span class="pill">${esc(d.time)}</span></div>${drillDetailHTML(d, info)}`, r => bindDrillDetail(r)); });
+    if (typeof kqStartKbAnim === "function") kqStartKbAnim();
+  } else {
+    $$(".drill", v).forEach(c => { $(".hd", c).onclick = () => c.classList.toggle("open"); bindDrillDetail(c); });
+  }
   if (S.drillSport === "running") bindPace(v);
 }
 
@@ -705,6 +729,7 @@ function renderBoard() {
   $("#b-clr").onclick = () => { snap(); b.arrows = []; save(); renderBoard(); };
   $("#b-rst").onclick = () => { snap(); S.boards[sport] = defaultBoard(sport); save(); renderBoard(); };
   bindBoard($("#board"), sport, b, snap);
+  kqBoardExtras(v, b);
 }
 function bindBoard(svg, sport, b, snap) {
   const g = courtGeom(sport);

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Pickleball">
+  <title>Pickleball</title>
+  <rect x="4" y="2.5" width="11" height="12.5" rx="3"/>
+  <path d="M8.4 15v5.5a1 1 0 0 0 1 1h.2a1 1 0 0 0 1-1V15"/>
+  <circle cx="18.6" cy="17.8" r="3.4"/>
+  <circle cx="17.4" cy="16.7" r="0.6" fill="currentColor" stroke="none"/>
+  <circle cx="19.8" cy="16.9" r="0.6" fill="currentColor" stroke="none"/>
+  <circle cx="18.5" cy="19.2" r="0.6" fill="currentColor" stroke="none"/>
+</svg>

@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="160 104 232 302" width="232" height="302" role="img" aria-label="KinetIQ">
+  <title>KinetIQ</title>
+  <defs>
+    <linearGradient id="kq-join" gradientUnits="userSpaceOnUse" x1="338" y1="0" x2="372" y2="0">
+      <stop offset="0" stop-color="#05f3fa"/><stop offset="1" stop-color="#3ef07b"/>
+    </linearGradient>
+  </defs>
+  <g fill="none" stroke-width="24" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M176 120V390" stroke="#ffffff"/>
+    <path d="M303.5 120 212.5 252.5 313.5 390H340" stroke="#05f3fa"/>
+    <path d="M338 390H372" stroke="url(#kq-join)" stroke-linecap="butt"/>
+    <path d="M366 120 271 252.5 376 390" stroke="#3ef07b"/>
+  </g>
+</svg>

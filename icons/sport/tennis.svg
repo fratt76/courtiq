@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Tennis">
+  <title>Tennis</title>
+  <ellipse cx="12" cy="8.2" rx="5.6" ry="6.2"/>
+  <path d="M9.4 13.7 11.2 16.6M14.6 13.7 12.8 16.6M12 16.4V22"/>
+  <path d="M10 2.4v11.6M14 2.4v11.6M6.6 6.3h10.8M6.6 10.1h10.8" stroke-width="1" />
+</svg>
