@@ -22,6 +22,7 @@ function kqStageOff() {
 }
 function kqFitBox(box, dock, ratios, pad = { x: 0, y: 0 }) {
   if (!box || !box.parentElement || box.hidden || box.parentElement.hidden) return;
+  if (!box.getClientRects().length) return;
   const fresh = !document.body.classList.contains("stage-on"); document.body.classList.add("stage-on");
   const w = (box.parentElement.clientWidth || 300) - pad.x;
   const head = kqHeadH(), tabs = ($(".tabs") || {}).offsetHeight || 0, dockH = dock && !dock.hidden ? dock.offsetHeight : 0;
@@ -36,7 +37,8 @@ function kqFitBox(box, dock, ratios, pad = { x: 0, y: 0 }) {
     const top = box.parentElement.getBoundingClientRect().top + window.scrollY, need = top - head - 6 + window.innerHeight, have = document.documentElement.scrollHeight;
     if (have < need) view.style.paddingBottom = (dockH + 14 + Math.ceil(need - have)) + "px";
   }
-  if (fresh && window.scrollY < 5) requestAnimationFrame(() => {
+  if (fresh) requestAnimationFrame(() => {
+    if (window.scrollY >= 5) return;
     const el = box.parentElement, top = el.getBoundingClientRect().top + window.scrollY;
     window.scrollTo(0, Math.max(0, top - kqHeadH() - 6));
   });

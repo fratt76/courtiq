@@ -244,7 +244,7 @@ function renderToday() {
       <details class="data"><summary>Data e note</summary>
         <input type="date" class="field" id="ck-date" value="${CK.date}" max="${today()}" style="margin-bottom:8px">
         <textarea class="field" id="ck-notes" placeholder="Note (facoltative)">${esc(CK.notes)}</textarea></details>
-      <button type="button" class="btn pri block" id="ck-save" style="margin-top:12px">Salva sessione</button>
+      <div class="ck-savebar"><button type="button" class="btn pri block" id="ck-save">Salva sessione</button></div>
     </div>
     ${acwrCard(info)}
     <div class="card"><h3>Ultime sessioni</h3>

@@ -102,7 +102,7 @@
     const wait = Math.max(0, lastNom + 1100 - Date.now()); if (wait) await sleep(wait); lastNom = Date.now();
     const url = `${NOMINATIM}?format=jsonv2&q=${encodeURIComponent(q)}&limit=15&accept-language=it&extratags=0`;
     const j = JSON.parse(await fetchText(url, { headers: { Accept: "application/json" } }, 15000));
-    return j.filter(r => r.class === "leisure" && r.type === "golf_course" && ["way", "relation", "node"].includes(r.osm_type)).slice(0, 8).map(r => ({
+    return j.filter(r => (r.category || r.class) === "leisure" && r.type === "golf_course" && ["way", "relation", "node"].includes(r.osm_type)).slice(0, 8).map(r => ({
       key: r.osm_type + "/" + r.osm_id, type: r.osm_type, id: r.osm_id, name: (r.name || r.display_name.split(",")[0]).trim(),
       place: r.display_name.split(",").slice(1, 4).join(",").trim(), lat: +r.lat, lon: +r.lon, bbox: r.boundingbox ? r.boundingbox.map(Number) : null
     }));
@@ -115,13 +115,17 @@
   }
   async function overpass(query) {
     let last = null;
-    for (const url of OVERPASS) {
-      try {
-        const txt = await fetchText(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: "data=" + encodeURIComponent(query) }, 45000);
-        let j; try { j = JSON.parse(txt); } catch (_) { const e = new Error("risposta non valida"); e.busy = true; throw e; }
-        if (j.remark && /timed out|out of memory|too busy/i.test(j.remark) && !(j.elements || []).length) { const e = new Error(j.remark); e.busy = true; throw e; }
-        return j;
-      } catch (e) { last = e; if (e.status === 400) break; }
+    for (let pass = 0; pass < 2; pass++) {
+      for (const [i, url] of OVERPASS.entries()) {
+        try {
+          const txt = await fetchText(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" }, body: "data=" + encodeURIComponent(query) }, i ? 30000 : 45000);
+          let j; try { j = JSON.parse(txt); } catch (_) { const e = new Error("risposta non valida"); e.busy = true; throw e; }
+          if (j.remark && /timed out|out of memory|too busy/i.test(j.remark) && !(j.elements || []).length) { const e = new Error(j.remark); e.busy = true; throw e; }
+          return j;
+        } catch (e) { last = e; if (e.status === 400) throw e; }
+      }
+      const transient = last && (last.status === 429 || last.status >= 500 || last.busy);
+      if (pass === 0 && transient) await sleep(4000); else break;
     }
     throw last || new Error("rete");
   }
@@ -202,7 +206,7 @@
       host.innerHTML = `<div class="card og-card"><div class="og-load"><span class="spin" aria-hidden="true"></span><div><b>${esc(course.name)}</b><div class="small mut">Scarico le geometrie del campo da OpenStreetMap… può richiedere fino a un minuto.</div></div></div></div>${attr}`;
       try {
         if (!geo && !force) { const hit = await cacheGet(course.key); if (hit && hit.geo) geo = hit.geo; }
-        if (!geo) { geo = await downloadGeo(course); await cachePut({ key: course.key, course, geo, name: course.name, place: course.place, ts: Date.now() }); }
+        if (!geo) { geo = await downloadGeo(course); if (listHoles(geo).length) await cachePut({ key: course.key, course, geo, name: course.name, place: course.place, ts: Date.now() }); }
         if (!alive()) return;
         showCourse(geo);
       } catch (e) {

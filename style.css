@@ -338,7 +338,7 @@ ul.rules li{margin:4px 0}
 #bodysvg .hot.focus circle.core{fill:var(--acc2)}
 .kb{border-top:1px solid #1f3145;padding-top:14px;margin-top:8px}
 .kb h4{margin:10px 0 4px;font-size:.85rem;color:var(--acc2);text-transform:uppercase;letter-spacing:.04em}
-canvas.kb-cv{width:100%;height:auto;border-radius:12px;display:block;background:#0d1a26;touch-action:pan-y;-webkit-touch-callout:none}
+canvas.kb-cv{width:100%;height:auto;border-radius:12px;display:block;background:#0d1a26;touch-action:auto;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .kb-slot{background:var(--bg2);border:1px dashed var(--line);border-radius:12px;padding:10px;margin:8px 0}
 .kb-slot video{width:100%;border-radius:10px;margin-top:8px;background:#000;max-height:42vh}
 .shot{fill:none;stroke-width:3;stroke-linecap:round}
@@ -511,3 +511,10 @@ body.stage-on .top{position:sticky;top:0;z-index:25;background:rgba(18,31,44,.96
 .dock-lbl{white-space:nowrap;font-size:.85rem;color:var(--mut)}
 .dock-row .btn.sm{white-space:nowrap}
 .boardwrap.stick #board,.boardwrap.stick #st-svg{min-height:0;max-height:none}
+.fbar,.fb,.dock,.dock button{touch-action:manipulation}
+.dock-h{touch-action:none}
+.boardwrap.focus #board,.boardwrap.focus #st-svg{width:100%!important;height:calc(100% - 78px)!important;max-height:none!important;min-height:0!important}
+.boardwrap.focus .osm-attr{bottom:auto}
+.og-card a{color:var(--acc)}
+.dock-read .dr-nav .btn{font-size:1.5rem;line-height:1;padding:0 14px}
+.ck-savebar{position:sticky;bottom:calc(var(--tabh) + var(--safe-b) + 6px);z-index:15;margin:12px -4px -4px;padding:10px 4px 4px;background:linear-gradient(180deg,rgba(18,28,49,0),#121c31 38%)}
