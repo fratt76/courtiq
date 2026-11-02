@@ -1,4 +1,4 @@
-/* CourtIQ - Prevenzione (sessioni lunghe), Recovery autonomo e richiesta al terapista.
+/* BioKinetIQ - Prevenzione (sessioni lunghe), Recovery autonomo e richiesta al terapista.
    Tutto resta sul dispositivo: nessun invio automatico, nessun server. */
 "use strict";
 
@@ -335,7 +335,7 @@ function pvSessionBind(v, info) {
   $$("[data-swap]", v).forEach(b => b.onclick = () => { const [bl, k] = b.dataset.swap.split(":"); if (pvReplace(sess, bl, +k)) { save(); renderPrevention(); toast("Esercizio sostituito"); } else toast("Nessuna alternativa disponibile"); });
 }
 function pvSessionText(sess) {
-  const L = [`KinetIQ · Prevenzione ${SPORTS[sess.cfg.sport]} · ${PV_LEVELS[sess.cfg.level]} · circa ${Math.round(pvTotal(pvItems(sess)) / 60)} min`];
+  const L = [`BioKinetIQ · Prevenzione ${SPORTS[sess.cfg.sport]} · ${PV_LEVELS[sess.cfg.level]} · circa ${Math.round(pvTotal(pvItems(sess)) / 60)} min`];
   for (const b of ["mob", "pot", "ril"]) { if (!sess.blocks[b].length) continue; L.push("", PV_BLOCKS[b].label.toUpperCase());
     sess.blocks[b].forEach((it, k) => { const ex = PV_BYID[it.id]; L.push(`${k + 1}. ${ex.n}: ${pvDoseTxt(it)}`, `   ${ex.d}`); }); }
   L.push("", "Indicazioni generali di allenamento: fermati se compare dolore.");
@@ -414,7 +414,7 @@ function pvTherapyText(q) {
     `Zona: ${q.zone ? ZONES[q.zone]?.label : "da valutare"}`, `Intensità attuale del fastidio: ${q.sev}/10`,
     `Preferenza: ${q.date ? fmtDate(q.date) : "data da concordare"}${q.slot && q.slot !== "Indifferente" ? ", " + q.slot.toLowerCase() : ""}`];
   if (q.notes) L.push(`Note: ${q.notes}`);
-  if (q.hist) { L.push("", "Storico fastidi (ultimi 60 giorni, da KinetIQ):"); const h = q.histLines || []; h.length ? h.forEach(x => L.push("- " + x)) : L.push("- nessun fastidio registrato"); }
+  if (q.hist) { L.push("", "Storico fastidi (ultimi 60 giorni, da BioKinetIQ):"); const h = q.histLines || []; h.length ? h.forEach(x => L.push("- " + x)) : L.push("- nessun fastidio registrato"); }
   L.push("", "Grazie.");
   return L.join("\n");
 }

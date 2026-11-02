@@ -565,3 +565,22 @@ body.stage-on .top{position:sticky;top:0;z-index:25;background:rgba(18,31,44,.96
 .origin-row{display:flex;gap:8px;align-items:center}
 .origin-row .field{flex:1;min-width:0}
 @media (max-width:390px){.sp-map{height:220px}}
+
+/* ===== BioKinetIQ: marchio e colori ===== */
+:root{--bg:#0a0b0d; --bg2:#111418; --card:#15191e; --card2:#1c2228; --line:#2a323b;
+  --acc:#1EC8E6; --acc2:#A6F03C; --on-acc:#0a0b0d; --tok-p:#1EC8E6; --arw-move:#A6F03C; --kitchen:rgba(30,200,230,.22);
+  --brand-grad:linear-gradient(90deg,#A6F03C,#1EC8E6)}
+body{background:radial-gradient(120% 60% at 100% 0%,rgba(30,200,230,.10) 0%,transparent 60%),radial-gradient(90% 50% at 0% 0%,rgba(166,240,60,.07) 0%,transparent 60%),var(--bg)}
+.stickyhead{background:rgba(10,11,13,.92);border-bottom:1px solid #1c2228}
+.logo{border-radius:0;object-fit:contain}
+.logo-wide{display:none;height:46px;width:auto;flex:none}
+.kq-grad{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.payoff{color:var(--acc2)}
+.splash-card{background:linear-gradient(180deg,#14181d,#0c0e11);border-color:#232a32}
+.splash-card img.splash-logo{width:100%;max-width:360px;height:auto;border-radius:0;display:block;margin:0 auto 4px}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.btn.pri{background:var(--brand-grad);color:#0a0b0d;border-color:transparent}
+@media (min-width:760px){
+  .logo-wide{display:block}
+  .brand .logo,.brand .brand-txt h1,.brand .payoff{display:none}
+}

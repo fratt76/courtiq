@@ -1,14 +1,14 @@
 {
-  "name": "KinetIQ · Longevità Atletica & Biomeccanica",
-  "short_name": "KinetIQ",
+  "name": "BioKinetIQ · Longevità Atletica & Biomeccanica",
+  "short_name": "BioKinetIQ",
   "description": "Muoviti meglio. Correggi il gesto. Non fermarti mai. Carichi, fastidi, drill, lavagna, prevenzione e video per racchette, corsa, atletica, golf, sci e kettlebell. I dati restano sul telefono.",
   "lang": "it",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#121f2c",
-  "theme_color": "#121f2c",
+  "background_color": "#0a0b0d",
+  "theme_color": "#0a0b0d",
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },

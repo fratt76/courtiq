@@ -1,4 +1,4 @@
-/* KinetIQ - Lavagna golf con mappe reali di OpenStreetMap.
+/* BioKinetIQ - Lavagna golf con mappe reali di OpenStreetMap.
    Caricato solo quando si apre la lavagna golf in modalità «Mappa reale»: non fa parte del bundle iniziale.
    Nessuna chiave API e nessuna tile: si scaricano solo i vettori OSM del campo scelto (Overpass) e si disegnano in SVG.
    Dati © OpenStreetMap contributors (ODbL). */

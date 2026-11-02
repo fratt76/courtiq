@@ -1,4 +1,4 @@
-/* CourtIQ - Video del colpo.
+/* BioKinetIQ - Video del colpo.
    Tutto avviene sul telefono: il video resta un URL locale (object URL), non viene caricato da nessuna parte
    e non viene conservato dopo la chiusura. Checklist e note vanno nel salvataggio locale dell'app.
    L'analisi automatica usa un modello di stima della posa che gira nel browser (MediaPipe Pose Landmarker,
@@ -387,9 +387,9 @@ function snapshot() {
   drawShapes(ctx, w, h, VS.shapes, sc);
   c.toBlob(async blob => {
     if (!blob) { toast("Impossibile salvare il fotogramma"); return; }
-    const name = `kinetiq-colpo-${today()}-${fmtT(vid.currentTime).replace(/[:.]/g, "")}.png`;
+    const name = `biokinetiq-colpo-${today()}-${fmtT(vid.currentTime).replace(/[:.]/g, "")}.png`;
     try { const file = new File([blob], name, { type: "image/png" });
-      if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) { await navigator.share({ files: [file], title: "KinetIQ" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      if (navigator.canShare && navigator.canShare({ files: [file] }) && /Android|iPhone|iPad/i.test(navigator.userAgent)) { await navigator.share({ files: [file], title: "BioKinetIQ" }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("Fotogramma salvato");
   }, "image/png");

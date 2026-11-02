@@ -1,4 +1,4 @@
-/* KinetIQ - esercizi tecnici per sport.
+/* BioKinetIQ - esercizi tecnici per sport.
    Indicazioni generali di campo, non una scheda personalizzata e non un consiglio medico.
    level: Base | Intermedio | Avanzato. La progressione è il passo successivo, quando il precedente è stabile. */
 "use strict";

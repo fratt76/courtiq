@@ -1,4 +1,4 @@
-/* CourtIQ - Prevenzione: libreria esercizi (esercizi standard di mobilità, rinforzo e rilassamento).
+/* BioKinetIQ - Prevenzione: libreria esercizi (esercizi standard di mobilità, rinforzo e rilassamento).
    Indicazioni generali di allenamento, non sono consigli medici.
    Campi: b = blocco (mob Mobilizzazione, pot Potenziamento, ril Rilassamento)
           z = zone (gruppi della mappa del corpo + "core")   eq = attrezzatura (none, elastico, manubri)
