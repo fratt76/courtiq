@@ -184,7 +184,7 @@ const CIQV = (() => {
       if (maxKnee != null && metrics.kneeFlexHinge != null && metrics.kneeFlexHinge > maxKnee) chk(`Nel punto più inclinato le ginocchia sono piegate circa ${r0(metrics.kneeFlexHinge)}°: il gesto sembra più uno squat che una cerniera d'anca. Da verificare. Il confronto con la chiusura corretta è nello Studio (preset dimostrativo).`);
       else if (metrics.kneeFlexHinge != null) ok(`Nel punto basso le ginocchia restano relativamente distese (circa ${r0(metrics.kneeFlexHinge)}°): compatibile con una cerniera.`);
       else chk("Ginocchia poco visibili: la cerniera non è stimabile. Riprendi di lato, corpo intero.");
-      chk("L'iperestensione lombare in chiusura non si misura in modo affidabile su un video 2D: controllala nello Studio scheletro o con il coach.");
+      chk("L'iperestensione lombare in chiusura non si misura in modo affidabile su un video 2D: controllala nello Studio o con il coach.");
     } else {
       /* di fronte la flessione del ginocchio non si misura sul piano dell'immagine: il punto più basso è dato dal bacino */
       const front = shot.view === "front";

@@ -824,13 +824,84 @@ function wakeLock(on) { try { if (on && navigator.wakeLock && !WL) navigator.wak
 /* ================= avvio ================= */
 $$(".tabs button").forEach(b => b.onclick = () => { const t = b.dataset.tab; (t === "campo" || t === "salute" || t === "video") ? goParent(t) : go(t); });
 $$(".mode button").forEach(b => b.onclick = () => setMode(b.dataset.mode));
+const helpBtn = $("#btn-help"); if (helpBtn) helpBtn.onclick = () => tourStart();
 $("#sheet").addEventListener("click", e => { if (e.target.matches("[data-close]")) closeSheet(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#sheet").hidden) closeSheet(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !$("#sheet").hidden) closeSheet();
+  else if (e.key === "Escape" && $("#tour") && !$("#tour").hidden) tourEnd(false);
+});
 setMode(S.mode);
+/* Guida al primo avvio. La chiave è dedicata: non entra nel salvataggio delle sessioni. */
+const TOUR_KEY = "kinetiq.tour.v1";
+const TOUR_STEPS = [
+  { sel: "#sportbar", title: "Scegli lo sport", text: "Tocca una disciplina: padel, tennis, pickleball, running, sci, golf, kettlebell o preparazione atletica. Drill, tecnica, fastidi e studio seguono lo sport selezionato." },
+  { sel: ".seg.mode", title: "Giocatore o Coach", text: "Giocatore è il diario delle tue sedute, con carico e semaforo. Coach serve a seguire gli atleti e a preparare la lezione da 60 minuti." },
+  { sel: '[data-tab="oggi"]', go: "oggi", title: "Oggi", text: "Qui registri minuti e fatica (RPE), vedi il rapporto di carico e il semaforo prima di entrare. In modalità Coach questa scheda diventa Atleti." },
+  { sel: '[data-tab="campo"]', go: "drill", title: "Campo", text: "Drill, lavagna tattica e scheda tecnica dello sport che hai scelto in alto." },
+  { sel: "#subnav", go: "drill", title: "Dentro la scheda", text: "In Campo trovi Drill, Lavagna e Tecnica. Salute, Video e Rete hanno le loro sottosezioni, nello stesso punto." },
+  { sel: '[data-tab="video"]', go: "video", title: "Video e Studio", text: "Puoi filmare il gesto oppure aprire lo Studio: una figura del corpo, con le articolazioni da correggere e l'angolo che cambia colore." },
+  { sel: '[data-tab="salute"]', go: "corpo", title: "Salute", text: "Segna i fastidi, avvia il recupero e apri la prevenzione. Quello che registri resta su questo telefono." },
+  { sel: '[data-tab="rete"]', go: "rete", title: "Rete", text: "La rubrica dei tuoi specialisti, con la mappa della zona e il filtro per tipo e distanza, più il foglio dei test sul campo." },
+  { sel: "#btn-help", title: "Rivedi la guida", text: "Questo pulsante rilancia il percorso quando vuoi. Non si riapre da solo: la scelta resta salvata su questo dispositivo." }
+];
+let tourI = 0;
+function tourSeen() { try { return localStorage.getItem(TOUR_KEY) === "1"; } catch (e) { return true; } }
+function tourMark() { try { localStorage.setItem(TOUR_KEY, "1"); } catch (e) { } }
+function tourPlace(step) {
+  const hole = $("#tour-hole"), card = $("#tour-card");
+  const el = step.sel ? document.querySelector(step.sel) : null;
+  const rects = el && !el.hidden ? el.getClientRects() : null;
+  if (!rects || !rects.length) { hole.hidden = true; card.style.top = "auto"; card.style.bottom = "calc(var(--tabh) + 18px)"; return; }
+  const r = el.getBoundingClientRect();
+  const pad = 6;
+  const top = Math.max(4, r.top - pad), left = Math.max(4, r.left - pad);
+  const width = Math.min(window.innerWidth - 8, Math.max(44, r.width + pad * 2));
+  const height = Math.max(36, r.height + pad * 2);
+  hole.hidden = false;
+  hole.style.top = top + "px"; hole.style.left = left + "px"; hole.style.width = width + "px"; hole.style.height = height + "px";
+  const ch = card.offsetHeight || 160, gap = 12;
+  const below = top + height + gap, spaceBelow = window.innerHeight - (top + height);
+  let cardTop = spaceBelow > ch + 20 || spaceBelow >= top ? below : top - ch - gap;
+  cardTop = Math.max(8, Math.min(cardTop, window.innerHeight - ch - 8));
+  card.style.bottom = "auto"; card.style.top = cardTop + "px";
+}
+function tourShow(i) {
+  tourI = i;
+  const step = TOUR_STEPS[i], last = i === TOUR_STEPS.length - 1;
+  $("#tour-kicker").textContent = "Guida · " + (i + 1) + " di " + TOUR_STEPS.length;
+  $("#tour-title").textContent = step.title;
+  $("#tour-text").textContent = step.text;
+  const next = $("#tour-next"); next.textContent = last ? "Fine" : "Avanti";
+  const paint = () => tourPlace(step);
+  if (step.go && typeof go === "function" && TAB !== step.go) go(step.go);
+  requestAnimationFrame(() => requestAnimationFrame(paint));
+}
+function tourStart() {
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (e) { }
+  const root = $("#tour"); if (!root) return;
+  root.hidden = false;
+  tourShow(0);
+  const next = $("#tour-next"), skip = $("#tour-skip");
+  next.onclick = () => { if (tourI >= TOUR_STEPS.length - 1) tourEnd(true); else tourShow(tourI + 1); };
+  skip.onclick = () => tourEnd(false);
+  next.focus();
+}
+function tourEnd(backHome) {
+  tourMark();
+  const root = $("#tour"); if (root) root.hidden = true;
+  if (backHome && TAB !== "oggi") go("oggi");
+}
+function tourMaybe() {
+  const splashEl = $("#splash");
+  if (splashEl && !splashEl.hidden) return;
+  if (!tourSeen()) tourStart();
+}
+window.addEventListener("resize", () => { const root = $("#tour"); if (root && !root.hidden) tourPlace(TOUR_STEPS[tourI]); });
 const splash = $("#splash");
 if (splash) {
-  const hide = () => { splash.hidden = true; try { sessionStorage.setItem("kinetiq.splash", "1"); } catch (e) { } };
+  const hide = () => { splash.hidden = true; try { sessionStorage.setItem("kinetiq.splash", "1"); } catch (e) { } tourMaybe(); };
   try { if (sessionStorage.getItem("kinetiq.splash")) splash.hidden = true; } catch (e) { }
   const goIn = $("#splash-go"); if (goIn) goIn.onclick = hide;
 }
+tourMaybe();
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => { });
