@@ -1,4 +1,4 @@
-/* KinetIQ - ergonomia mobile: bottom sheet con maniglia, modalità Focus (schermo intero) per le lavagne,
+/* BioKinetIQ - ergonomia mobile: bottom sheet con maniglia, modalità Focus (schermo intero) per le lavagne,
    segni a mano sulle lavagne, schede dei drill a scorrimento e fasi Prima | Tecnica | Dopo.
    Solo contenuti già presenti in data.js e prevenzione-data.js: nessun esercizio nuovo. */
 "use strict";

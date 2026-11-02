@@ -1,4 +1,4 @@
-/* CourtIQ - contenuti di base (generici e prudenti, non sono consigli medici) */
+/* BioKinetIQ - contenuti di base (generici e prudenti, non sono consigli medici) */
 "use strict";
 
 const ZONES = {

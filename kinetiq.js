@@ -1,11 +1,11 @@
-/* KinetIQ - carico Foster, semaforo, sport biomeccanici, studio con figura, rete specialisti.
+/* BioKinetIQ - carico Foster, semaforo, sport biomeccanici, studio con figura, rete specialisti.
    I dati restano sul dispositivo. Nessuna integrazione con Apple Salute, Strava o Garmin.
    Gli angoli dei preset sono dimostrativi: non sono misure di una persona reale. */
 "use strict";
 
 const KQ_ROLES = [["maestro", "Maestro/Tecnico"], ["fisio", "Fisioterapista/Osteopata"], ["prep", "Preparatore/Chinesiologo"]];
 const KQ_ROLE = Object.fromEntries(KQ_ROLES);
-const KQ_WA = "Ciao, utilizzo KinetIQ e vorrei condividere il mio report biomeccanico per una valutazione.";
+const KQ_WA = "Ciao, utilizzo BioKinetIQ e vorrei condividere il mio report biomeccanico per una valutazione.";
 const DUR_PRESETS = {
   padel: [45, 60, 90, 120], tennis: [45, 60, 90, 120], pickleball: [30, 45, 60, 90],
   running: [20, 30, 45, 60], sci: [60, 120, 180, 240], atletica: [30, 45, 60, 90],
@@ -270,7 +270,7 @@ function kqReport(zone) {
   L.push("Carico acuto (7 giorni, minuti × RPE): " + info.acute);
   L.push("Carico cronico (media settimanale sui 28 giorni): " + Math.round(info.chronic));
   L.push("ACWR: " + (info.ratio == null ? "dati insufficienti" : info.ratio.toFixed(2) + " · " + ZONE_TXT[info.zone][0]));
-  L.push("", "Testo preparato da KinetIQ. Non è una diagnosi.");
+  L.push("", "Testo preparato da BioKinetIQ. Non è una diagnosi.");
   return L.join("\n");
 }
 function kqPhone(raw) {
@@ -1506,7 +1506,7 @@ function kqSpecsHTML() {
   const distWarn = dist > 0 && !origin;
   return `<div id="rete-ui"><div class="card"><h2>Rete specialisti</h2>
     <p class="small mut">I contatti li aggiungi tu: nessun nominativo di esempio. Sulla mappa compaiono solo quelli con un indirizzo trovato, o con coordinate inserite a mano.</p>
-    <div class="alert yellow"><span>⚕️</span><div>KinetIQ non sostituisce il medico, il fisioterapista o il coach. Il tasto WhatsApp prepara solo un messaggio.</div></div>
+    <div class="alert yellow"><span>⚕️</span><div>BioKinetIQ non sostituisce il medico, il fisioterapista o il coach. Il tasto WhatsApp prepara solo un messaggio.</div></div>
     <label class="lbl">Sport</label>
     <div class="chips" data-group="sp-sport"><button type="button" class="chip ${sport === "all" ? "on" : ""}" data-val="all">Tutti</button>${SPORT_IDS.map(id => `<button type="button" class="chip ${sport === id ? "on" : ""}" data-val="${id}">${sportIcon(id, 18)}${esc(SPORTS[id])}</button>`).join("")}</div>
     <label class="lbl">Tipo</label>
@@ -1668,7 +1668,7 @@ function kqTestHTML() {
     <p class="small">Domanda 1 ________________________________</p>
     <p class="small">Domanda 2 ________________________________</p>
     <p class="small">Domanda 3 ________________________________</p>
-    <p class="small mut">KinetIQ non sostituisce il maestro, il medico o il fisioterapista. Questo foglio raccoglie il loro giudizio.</p>
+    <p class="small mut">BioKinetIQ non sostituisce il maestro, il medico o il fisioterapista. Questo foglio raccoglie il loro giudizio.</p>
     <button type="button" class="btn pri block" id="kq-print">Stampa o salva PDF</button>
   </article>`;
 }

@@ -1,4 +1,4 @@
-/* KinetIQ - logica dell'app (Giocatore + Coach). Nessun server: i dati restano sul dispositivo.
+/* BioKinetIQ - logica dell'app (Giocatore + Coach). Nessun server: i dati restano sul dispositivo.
    La chiave localStorage resta courtiq.v1 di proposito: così le sessioni già salvate non si perdono. */
 "use strict";
 
@@ -210,7 +210,7 @@ function acwrCard(info, title = "Carico di allenamento (ACWR)") {
 function alertsHTML(info) {
   return info.alerts.map(a => `<div class="alert ${a.lv}"><span>${a.lv === "red" ? "⚠️" : "ℹ️"}</span><div><b>${esc(a.t)}</b><br>${esc(a.d)}</div></div>`).join("");
 }
-const DISCLAIMER = `<div class="disclaimer"><span>⚕️</span><span>KinetIQ non sostituisce il medico, il fisioterapista o il coach. È un supporto con indicazioni generali: non fa diagnosi e non prescrive cure. Se il dolore è forte, dura da più giorni o arriva dopo un trauma, fermati e rivolgiti a un professionista.</span></div>`;
+const DISCLAIMER = `<div class="disclaimer"><span>⚕️</span><span>BioKinetIQ non sostituisce il medico, il fisioterapista o il coach. È un supporto con indicazioni generali: non fa diagnosi e non prescrive cure. Se il dolore è forte, dura da più giorni o arriva dopo un trauma, fermati e rivolgiti a un professionista.</span></div>`;
 
 /* ================= OGGI (giocatore) ================= */
 let CK = { sport: null, dur: 60, rpe: 6, date: null, notes: "", km: "", custom: false };
@@ -293,9 +293,9 @@ function renderToday() {
   };
   $$("[data-del]", v).forEach(b => b.onclick = () => { if (confirm("Eliminare questa sessione?")) { S.sessions = S.sessions.filter(s => s.id !== b.dataset.del); save(); renderToday(); } });
   [$("#demo"), $("#demo2")].forEach(b => b && (b.onclick = () => { if (!S.sessions.length || confirm("Sostituire le tue sessioni con dati di esempio?")) { S.sessions = demoSessions(1); save(); renderToday(); toast("Dati di esempio caricati"); } }));
-  $("#exp").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" })); a.download = `kinetiq-${today()}.json`; a.click(); };
+  $("#exp").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" })); a.download = `biokinetiq-${today()}.json`; a.click(); };
   $("#imp").onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const o = JSON.parse(t); if (!Array.isArray(o.sessions)) throw 0; S = Object.assign(DEFAULT(), o); save(); setMode(S.mode); toast("Dati importati"); } catch (_) { toast("File non valido"); } }); };
-  $("#wipe").onclick = () => { if (confirm("Cancellare tutti i dati di KinetIQ su questo dispositivo?")) { S = DEFAULT(); save(); setMode("player"); toast("Dati cancellati"); } };
+  $("#wipe").onclick = () => { if (confirm("Cancellare tutti i dati di BioKinetIQ su questo dispositivo?")) { S = DEFAULT(); save(); setMode("player"); toast("Dati cancellati"); } };
   kqGaugeKick();
 }
 
@@ -394,7 +394,7 @@ function athleteSheet(id) {
   });
 }
 function athleteText(a, i) {
-  const L = [`KinetIQ · scheda per ${a.name}`, `Sport: ${SPORTS[a.sport]}`, `ACWR: ${i.ratio == null ? "dati insufficienti" : i.ratio.toFixed(2) + " (" + ZONE_TXT[i.zone][0] + ")"}`];
+  const L = [`BioKinetIQ · scheda per ${a.name}`, `Sport: ${SPORTS[a.sport]}`, `ACWR: ${i.ratio == null ? "dati insufficienti" : i.ratio.toFixed(2) + " (" + ZONE_TXT[i.zone][0] + ")"}`];
   if (Object.keys(i.active).length) L.push("Fastidi: " + Object.entries(i.active).map(([z, p]) => `${ZONES[z].label} ${p.sev}/10`).join(", "));
   for (const x of a.assigned) {
     L.push("", `${x.kind}: ${x.title}`);
@@ -627,7 +627,7 @@ function bindPlanner(v) {
     const plan = [["10 min", "Riscaldamento", ROUTINES[0].title], ...pick.map(d => ["10 min", "Drill", d.title]), final, ["5 min", "Defaticamento", ROUTINES.find(r => r.id === "r7").title]];
     $("#pl-out", v).innerHTML = `<ol class="list steps" style="margin-top:12px">${plan.map((p, k) => `<li><span class="num">${k + 1}</span><div class="grow"><div class="t">${esc(p[2])}</div><div class="s">${p[1]} · ${p[0]}</div></div></li>`).join("")}</ol>
       <button type="button" class="btn sm block" id="pl-copy">Copia piano</button>`;
-    $("#pl-copy", v).onclick = () => copyText([`KinetIQ · Piano lezione ${SPORTS[PL.sport]} · ${PL.level}${PL.focus ? " · " + PL.focus : ""}`, ...plan.map((p, k) => `${k + 1}. ${p[1]} (${p[0]}): ${p[2]}`)].join("\n"));
+    $("#pl-copy", v).onclick = () => copyText([`BioKinetIQ · Piano lezione ${SPORTS[PL.sport]} · ${PL.level}${PL.focus ? " · " + PL.focus : ""}`, ...plan.map((p, k) => `${k + 1}. ${p[1]} (${p[0]}): ${p[2]}`)].join("\n"));
   };
 }
 
