@@ -5,7 +5,7 @@
 /* ================= utilità ================= */
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+var esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const uid = () => Math.random().toString(36).slice(2, 10);
 const DAY = 86400000;
 const pad2 = n => String(n).padStart(2, "0");
@@ -924,6 +924,7 @@ function tourEnd(backHome) {
   if (backHome && TAB !== "oggi") go("oggi");
 }
 function tourMaybe() {
+  if (!document.body.classList.contains("bq-authed")) return;
   const splashEl = $("#splash");
   if (splashEl && !splashEl.hidden) return;
   if (!tourSeen()) tourStart();
@@ -931,9 +932,8 @@ function tourMaybe() {
 window.addEventListener("resize", () => { const root = $("#tour"); if (root && !root.hidden) tourPlace(TOUR_STEPS[tourI]); });
 const splash = $("#splash");
 if (splash) {
-  const hide = () => { splash.hidden = true; try { sessionStorage.setItem("kinetiq.splash", "1"); } catch (e) { } tourMaybe(); };
-  try { if (sessionStorage.getItem("kinetiq.splash")) splash.hidden = true; } catch (e) { }
-  const goIn = $("#splash-go"); if (goIn) goIn.onclick = hide;
+  /* Niente accesso ospite: «Entra» apre il login (vedi auth.js, bqBootAuth). */
+  splash.hidden = false;
 }
 tourMaybe();
 bqBootI18n().then(() => { bqBootAuth(); bqApplyChrome(); }).catch(() => { });
