@@ -605,3 +605,6 @@ body{background:radial-gradient(120% 60% at 100% 0%,rgba(30,200,230,.10) 0%,tran
   .logo-wide{display:block}
   .brand .logo,.brand .brand-txt h1,.brand .payoff{display:none}
 }
+
+/* Accesso obbligatorio: senza sessione valida resta visibile solo la schermata di accesso/registrazione/piani. */
+body:not(.bq-authed) > *:not(#splash):not(#auth-screen):not(#pricing-screen):not(#toast):not(script){display:none!important}

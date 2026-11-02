@@ -77,7 +77,7 @@ function bqAuthHTML(mode) {
     <button type="button" class="btn pri block" id="au-go" style="margin-top:12px">${esc(t(reg ? "auth.submitRegister" : "auth.submitLogin"))}</button>
     <button type="button" class="btn ghost block" id="au-alt">${esc(t(reg ? "auth.have" : "auth.need"))}</button>
     ${reg ? "" : `<button type="button" class="btn ghost block" id="au-forgot">${esc(t("auth.forgot"))}</button>`}
-    <button type="button" class="btn ghost block" id="au-guest">${esc(t("auth.guest"))}</button>
+    <button type="button" class="btn ghost block" id="au-home">${esc(t("pricing.back"))}</button>
     <p class="small mut" id="au-msg"></p></div>`;
 }
 function bqShowAuth(mode) {
@@ -109,8 +109,7 @@ function bqRenderAuth(mode) {
   if (!host) return;
   host.innerHTML = `<div class="auth-wrap">${bqAuthHTML(mode)}</div>`;
   bqBindLang(host);
-  const backGuest = () => bqHideAuth();
-  const guest = document.getElementById("au-guest"); if (guest) guest.onclick = backGuest;
+  const home = document.getElementById("au-home"); if (home) home.onclick = () => { bqHideAuth(); bqShowSplash(); };
   const alt = document.getElementById("au-alt"); if (alt) alt.onclick = () => bqShowAuth(mode === "register" ? "login" : "register");
   const forgot = document.getElementById("au-forgot"); if (forgot) forgot.onclick = () => bqShowAuth("forgot");
   const back = document.getElementById("au-back"); if (back) back.onclick = () => bqShowAuth("login");
@@ -170,7 +169,7 @@ async function bqDoLogin() {
   try {
     const data = await bqApi("/login", { email, password, invito: bqInviteCode() });
     bqSetSession(data.token, data.user);
-    bqHideAuth();
+    bqGateOpen();
     await bqSyncLocal();
     if (typeof bqLoadBilling === "function") await bqLoadBilling();
     if (data.invite && data.invite.coach) { try { sessionStorage.removeItem("biokinetiq.invito"); } catch (e) { } }
@@ -204,6 +203,7 @@ async function bqDoReset() {
 async function bqLogout() {
   try { await bqApi("/logout", {}); } catch (e) { }
   bqSetSession("", null);
+  bqGateLock();
 }
 function bqAccountSheet() {
   const u = bqUser();
@@ -231,6 +231,32 @@ async function bqConsumeLinks() {
     bqShowAuth("register");
   }
 }
+/* Accesso obbligatorio: il contenuto dell'app si vede solo con una sessione valida e verificata (/api/me 200). */
+function bqShowSplash() {
+  if (document.body.classList.contains("bq-authed")) return;
+  const s = document.getElementById("splash"); if (s) s.hidden = false;
+}
+function bqGateOpen() {
+  document.body.classList.add("bq-authed");
+  bqHideAuth();
+  const s = document.getElementById("splash"); if (s) s.hidden = true;
+  if (typeof tourMaybe === "function") tourMaybe();
+}
+function bqGateLock() {
+  document.body.classList.remove("bq-authed");
+  try { localStorage.removeItem(BQ_TOKEN); localStorage.removeItem(BQ_USER); } catch (e) { }
+  bqPaintAccount();
+  if (!document.body.dataset.auth) bqShowSplash();
+}
+async function bqCheckSession() {
+  if (!bqToken()) { bqGateLock(); return false; }
+  try {
+    const me = await bqApi("/me");
+    if (me && me.user) { try { localStorage.setItem(BQ_USER, JSON.stringify(me.user)); } catch (e) { } }
+    bqGateOpen();
+    return true;
+  } catch (e) { bqGateLock(); return false; }
+}
 function bqBootAuth() {
   const login = document.getElementById("splash-login");
   const reg = document.getElementById("splash-register");
@@ -240,7 +266,10 @@ function bqBootAuth() {
   if (acc) acc.onclick = () => bqAccountSheet();
   bqPaintAccount();
   bqConsumeLinks();
-  if (bqToken()) bqSyncLocal().then(async () => {
+  const splashGo = document.getElementById("splash-go");
+  if (splashGo) splashGo.onclick = () => bqShowAuth("login");
+  if (bqToken()) bqCheckSession().then(ok => ok && bqSyncLocal()).then(async () => {
+    if (!document.body.classList.contains("bq-authed")) return;
     if (typeof bqLoadBilling === "function") await bqLoadBilling();
     if (typeof coachOnSession === "function") coachOnSession();
     else if (typeof setMode === "function" && typeof S !== "undefined") setMode(S.mode);
