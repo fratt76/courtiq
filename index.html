@@ -46,6 +46,7 @@
     </div>
   </div>
   <div class="top-actions">
+    <button type="button" class="help-btn" id="btn-account" aria-label="Account">Account</button>
     <button type="button" class="help-btn" id="btn-help" aria-label="Apri la guida">?</button>
     <div class="seg mode" role="group" aria-label="Modalità">
       <button type="button" data-mode="player" class="on">Giocatore</button>
@@ -107,11 +108,17 @@
   <div class="splash-card">
     <img src="icons/biokinetiq-logo-1200.png" alt="BioKinetIQ · Longevità Atletica &amp; Biomeccanica" class="splash-logo" width="1200" height="324">
     <h1 class="sr-only">BioKinetIQ</h1>
-    <p class="tagline">Muoviti meglio. Correggi il gesto. Non fermarti mai.</p>
-    <p class="small">Uno strumento tra te, il maestro e il terapista. Non sostituisce il medico, il fisioterapista o il coach.</p>
-    <button type="button" class="btn pri block" id="splash-go">Entra</button>
+    <p class="tagline" id="splash-tagline">Muoviti meglio. Correggi il gesto. Non fermarti mai.</p>
+    <p class="small" id="splash-note">Uno strumento tra te, il maestro e il terapista. Non sostituisce il medico, il fisioterapista o il coach.</p>
+    <label class="lbl" for="lang-splash">Lingua</label>
+    <select class="field" id="lang-splash" data-lang-select></select>
+    <button type="button" class="btn pri block" id="splash-login">Accedi</button>
+    <button type="button" class="btn block" id="splash-register">Registrati</button>
+    <button type="button" class="btn ghost block" id="splash-go">Entra</button>
   </div>
 </div>
+<script src="i18n.js"></script>
+<script src="auth.js"></script>
 <script src="data.js"></script>
 <script src="prevenzione-data.js"></script>
 <script src="figures.js"></script>

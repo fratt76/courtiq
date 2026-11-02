@@ -164,7 +164,7 @@ function render(tab = TAB) {
 function setMode(m) {
   S.mode = m; save();
   $$(".mode button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
-  $("#tab-oggi-label").textContent = m === "coach" ? "Atleti" : "Oggi";
+  $("#tab-oggi-label").textContent = m === "coach" ? "Atleti" : (typeof t === "function" ? t("nav.today") : "Oggi");
   document.body.dataset.mode = m;
   render();
 }
@@ -920,4 +920,5 @@ if (splash) {
   const goIn = $("#splash-go"); if (goIn) goIn.onclick = hide;
 }
 tourMaybe();
+bqBootI18n().then(() => { bqBootAuth(); bqApplyChrome(); }).catch(() => { });
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => { });

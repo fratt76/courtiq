@@ -1,0 +1,11 @@
+{
+  "name": "biokinetiq-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-sqlite server.js"
+  },
+  "dependencies": {
+    "nodemailer": "^6.10.1"
+  }
+}
