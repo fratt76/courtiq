@@ -586,6 +586,11 @@ body{background:radial-gradient(120% 60% at 100% 0%,rgba(30,200,230,.10) 0%,tran
 .payoff{color:var(--acc2)}
 .splash-card{background:linear-gradient(180deg,#14181d,#0c0e11);border-color:#232a32}
 .splash-card img.splash-logo{width:100%;max-width:360px;height:auto;border-radius:0;display:block;margin:0 auto 4px}
+.auth-screen{position:fixed;inset:0;z-index:90;overflow:auto;background:var(--bg);padding:18px 14px 28px}
+.auth-screen[hidden]{display:none}
+.auth-wrap{max-width:480px;margin:0 auto}
+.auth-card .btn{margin-top:8px}
+#btn-account{width:auto;padding:0 10px;border-radius:999px;font-size:.78rem}
 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .btn.pri{background:var(--brand-grad);color:#0a0b0d;border-color:transparent}
 @media (min-width:760px){

@@ -1,0 +1,5 @@
+server/data/
+server/outbox/
+server/node_modules/
+server/.env
+.env
