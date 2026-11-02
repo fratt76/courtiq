@@ -1,4 +1,4 @@
-/* KinetIQ - carico Foster, semaforo, sport biomeccanici, studio scheletro, rete specialisti.
+/* KinetIQ - carico Foster, semaforo, sport biomeccanici, studio con figura, rete specialisti.
    I dati restano sul dispositivo. Nessuna integrazione con Apple Salute, Strava o Garmin.
    Gli angoli dei preset sono dimostrativi: non sono misure di una persona reale. */
 "use strict";
@@ -11,7 +11,7 @@ const DUR_PRESETS = {
   running: [20, 30, 45, 60], sci: [60, 120, 180, 240], atletica: [30, 45, 60, 90],
   golf: [60, 120, 180, 240], kettlebell: [20, 30, 45, 60]
 };
-const KQ = { rete: "specs", specSport: "all", specCity: "", specOpen: false, studio: null, kbRAF: 0, kbUrl: {}, waZone: null, gaugeLast: null };
+const KQ = { rete: "specs", specSport: "all", specCity: "", specRole: "all", specDist: 0, specOpen: false, studio: null, kbRAF: 0, kbUrl: {}, waZone: null, gaugeLast: null, techLv: "all", map: null, lastNom: 0, userPos: null, originCity: "" };
 
 /* ---------- profili: finestre indicative, non misurazioni ---------- */
 const SPORT_BIO = {
@@ -463,6 +463,26 @@ function kqStartKbAnim() {
 }
 function kqStopAnims() { if (typeof kqStageOff === "function") kqStageOff(); cancelAnimationFrame(KQ.kbRAF); KQ.kbRAF = 0; if (KQ.studio && KQ.studio.anim) { cancelAnimationFrame(KQ.studio.anim); KQ.studio.anim = 0; } }
 
+function kqTechHTML(sport) {
+  const list = (typeof TECH_EX !== "undefined" && TECH_EX[sport]) || [];
+  if (!list.length) return "";
+  const lv = KQ.techLv || "all";
+  const shown = list.filter(ex => lv === "all" || ex.level === lv);
+  const levels = [["all", "Tutti"], ["Base", "Base"], ["Intermedio", "Intermedio"], ["Avanzato", "Avanzato"]];
+  return `<div class="card" id="tech-lib"><div class="row between"><h2>Esercizi tecnici</h2><span class="pill acc" id="tech-count">${shown.length} esercizi</span></div>
+    <p class="small mut">Drill di campo per ${esc(SPORTS[sport] || sport)}, con livello e progressione. Indicazioni generali: fermati se compare dolore.</p>
+    <div class="chips tech-lv" id="tech-lv">${levels.map(([id, l]) => `<button type="button" class="chip ${lv === id ? "on" : ""}" data-lv="${id}">${l}</button>`).join("")}</div>
+    ${shown.map(ex => `<article class="tech-ex">
+      <div class="row between" style="gap:8px;align-items:flex-start"><h3>${esc(ex.title)}</h3><span class="pill">${esc(ex.level)}</span></div>
+      <p class="small mut" style="margin:4px 0 6px">${esc(ex.dose)} · ${esc(ex.focus)}</p>
+      <p class="small">${esc(ex.desc)}</p>
+      <ul class="small">${(ex.cues || []).map(c => `<li>${esc(c)}</li>`).join("")}</ul>
+      ${ex.prog ? `<p class="small"><b>Progressione.</b> ${esc(ex.prog)}</p>` : ""}
+    </article>`).join("") || `<div class="empty">Nessun esercizio per questo livello.</div>`}</div>`;
+}
+function kqBindTech(root) {
+  $$("#tech-lv .chip", root).forEach(b => b.onclick = () => { KQ.techLv = b.dataset.lv; kqRenderTecnica(); });
+}
 function kqRenderTecnica() {
   const v = $("#view-tecnica");
   const id = S.sport || "tennis";
@@ -475,12 +495,13 @@ function kqRenderTecnica() {
       <div class="alert yellow"><span>ℹ️</span><div>${esc(b.alert)}</div></div>
       <p class="small">Zone da tenere d'occhio sulla mappa: <b>${esc(zones)}</b></p>
       <div class="btns"><button type="button" class="btn sm" id="tec-body">Apri la mappa</button>
-        <button type="button" class="btn sm" id="tec-st">Studio scheletro</button>
+        <button type="button" class="btn sm" id="tec-st">Apri lo Studio</button>
         <button type="button" class="btn sm ghost" id="tec-dr">Drill</button></div></div>
-    ${kqLongevityBlock(id)}
     ${id === "kettlebell" ? kqKbLibraryHTML() : ""}
+    ${kqTechHTML(id)}
+    ${kqLongevityBlock(id)}
     ${DISCLAIMER}`;
-  kqBindSpec(v); kqBindLongevity(v);
+  kqBindSpec(v); kqBindLongevity(v); kqBindTech(v);
   $("#tec-body", v).onclick = () => go("corpo");
   $("#tec-st", v).onclick = () => kqOpenStudio(b.preset);
   $("#tec-dr", v).onclick = () => { S.drillSport = id; save(); go("drill"); };
@@ -519,11 +540,11 @@ function kqBindKb(root) {
   });
 }
 
-/* ---------- studio scheletro ---------- */
+/* ---------- studio: figura con articolazioni ---------- */
 const STUDIO = [
-  { id: "kb_hyper", sport: "Kettlebell", title: "Iperestensione in chiusura di swing",
+  { id: "kb_hyper", sport: "Kettlebell", view: "side", face: 1, hot: "torso", title: "Iperestensione in chiusura di swing",
     note: "Preset dimostrativo: figure disegnate per la lezione, non ricavate da un video reale.",
-    phrase: "Glutei contratti", force: "Forza di taglio su L5-S1 (schema)",
+    phrase: "Glutei contratti", force: "Taglio su L5-S1",
     nodes: [
       { id: "head", x: 78, y: 40, tx: 98, ty: 38 },
       { id: "shoulder", x: 96, y: 68, tx: 98, ty: 68, drag: true },
@@ -541,9 +562,9 @@ const STUDIO = [
       return { zone, text: `Iperestensione schematica ${ext.toFixed(0)}°`, sub: "Finestra verde: circa 0°–8°. Il numero è del disegno, non del tuo corpo." };
     },
     arrow(n, m) { if (m.zone === "green") return null; const len = 22 + Math.min(40, Math.abs(n.hip.x - n.shoulder.x)); return [n.lumbar.x, n.lumbar.y, n.lumbar.x - len, n.lumbar.y - 8]; } },
-  { id: "golf_early", sport: "Golf", title: "Early extension, perdita dello spine angle",
+  { id: "golf_early", sport: "Golf", view: "side", face: 1, hot: "torso", title: "Early extension, perdita dello spine angle",
     note: "Preset dimostrativo: il bacino «sbagliato» è verso la palla e il busto si è alzato.",
-    phrase: "Bacino indietro", force: "Il bacino scivola verso la palla (schema)",
+    phrase: "Bacino indietro", force: "Bacino verso la palla",
     nodes: [
       { id: "head", x: 140, y: 46, tx: 164, ty: 58 },
       { id: "shoulder", x: 136, y: 72, tx: 150, ty: 86, drag: true },
@@ -561,9 +582,9 @@ const STUDIO = [
       return { zone, text: `Spine angle schematico ${lean.toFixed(0)}°`, sub: "Finestra verde di questo preset: 32°–48°. È un disegno, non il tuo swing." };
     },
     arrow(n, m) { if (m.zone === "green") return null; return [n.hip.x, n.hip.y, n.hip.x + 42, n.hip.y - 6]; } },
-  { id: "elbow_low", sport: "Tennis / Padel", title: "Gomito basso e arretrato",
+  { id: "elbow_low", sport: "Tennis / Padel", view: "side", face: 1, hot: "arm", title: "Gomito basso e arretrato",
     note: "Preset dimostrativo dell'impatto con il gomito sotto e dietro la spalla.",
-    phrase: "Gomito alto", force: "Carico sul gomito (schema)",
+    phrase: "Gomito alto", force: "Carico sul gomito",
     nodes: [
       { id: "head", x: 78, y: 52, tx: 102, ty: 56 },
       { id: "shoulder", x: 84, y: 88, tx: 84, ty: 88, drag: true },
@@ -582,9 +603,9 @@ const STUDIO = [
       return { zone, text: `Braccio rispetto all'orizzontale ${arm.toFixed(0)}°`, sub: "Verde: gomito avanti e all'altezza della spalla (circa −25° / +15°). Disegno, non un tuo fotogramma." };
     },
     arrow(n, m) { if (m.zone === "green") return null; return [n.elbow.x, n.elbow.y, n.elbow.x, n.elbow.y + 46]; } },
-  { id: "ski_valgus", sport: "Sci", title: "Valgismo del ginocchio",
+  { id: "ski_valgus", sport: "Sci", view: "front", hot: "legR", title: "Valgismo del ginocchio",
     note: "Preset dimostrativo: vista frontale, ginocchio destro che cede verso l'interno.",
-    phrase: "Ginocchio allineato", force: "Stress sul crociato (schema)",
+    phrase: "Ginocchio allineato", force: "Stress sul crociato",
     nodes: [
       { id: "head", x: 100, y: 32, tx: 100, ty: 32 },
       { id: "shL", x: 68, y: 68, tx: 68, ty: 68 },
@@ -609,6 +630,183 @@ const STUDIO = [
     },
     arrow(n, m) { if (m.zone === "green") return null; return [n.kneeR.x, n.kneeR.y, n.kneeR.x - 36, n.kneeR.y]; } }
 ];
+function kqF(n) { return (Number.isFinite(n) ? n : 0).toFixed(1); }
+function kqMid(a, b, t = 0.5) { return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }; }
+function kqUnit(a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy);
+  const d = L || 1;
+  return { x: dx / d, y: dy / d, L };
+}
+function kqSmoothClosed(pts) {
+  const n = pts.length;
+  if (n < 3) return "";
+  let d = `M ${kqF(pts[0].x)} ${kqF(pts[0].y)}`;
+  for (let i = 0; i < n; i++) {
+    const a = pts[(i + 1) % n], b = pts[(i + 2) % n];
+    d += ` Q ${kqF(a.x)} ${kqF(a.y)} ${kqF((a.x + b.x) / 2)} ${kqF((a.y + b.y) / 2)}`;
+  }
+  return d + " Z";
+}
+function kqCapsulePoly(a, b, r1, r2) {
+  const u = kqUnit(a, b);
+  if (u.L < 1) return "";
+  const px = -u.y, py = u.x;
+  const p = (pt, r, s) => `${kqF(pt.x + px * r * s)} ${kqF(pt.y + py * r * s)}`;
+  return `M ${p(a, r1, 1)} L ${p(b, r2, 1)} L ${p(b, r2, -1)} L ${p(a, r1, -1)} Z`;
+}
+function kqSeg(a, b, r1, r2, hot) {
+  if (!a || !b) return "";
+  const c = `class="skin${hot ? " hot" : ""}"`;
+  const d = kqCapsulePoly(a, b, r1, r2);
+  const caps = `<circle ${c} cx="${kqF(a.x)}" cy="${kqF(a.y)}" r="${kqF(r1)}"/><circle ${c} cx="${kqF(b.x)}" cy="${kqF(b.y)}" r="${kqF(r2)}"/>`;
+  return d ? caps + `<path ${c} d="${d}"/>` : caps;
+}
+function kqRibbon(samples, sign) {
+  const n = samples.length;
+  if (n < 2) return "";
+  const dirs = samples.map((s, i) => kqUnit(samples[Math.max(0, i - 1)], samples[Math.min(n - 1, i + 1)]));
+  let perps = dirs.map(u => ({ x: -u.y, y: u.x }));
+  const ref = sign || { x: 1, y: 0 };
+  const dot = perps.reduce((s, p) => s + p.x * ref.x + p.y * ref.y, 0);
+  if (dot < 0) perps = perps.map(p => ({ x: -p.x, y: -p.y }));
+  const ant = samples.map((s, i) => ({ x: s.x + perps[i].x * s.ant, y: s.y + perps[i].y * s.ant }));
+  const post = samples.map((s, i) => ({ x: s.x - perps[i].x * s.post, y: s.y - perps[i].y * s.post }));
+  return kqSmoothClosed(ant.concat(post.slice().reverse()));
+}
+function kqAnt(from, to, face) {
+  const u = kqUnit(from, to);
+  let p = { x: -u.y, y: u.x };
+  if (p.x * face < 0) p = { x: -p.x, y: -p.y };
+  return p;
+}
+function kqShoe(ankle, face) {
+  const d = face >= 0 ? 1 : -1;
+  return kqSmoothClosed([
+    { x: ankle.x - d * 8, y: ankle.y },
+    { x: ankle.x + d * 8, y: ankle.y - 1 },
+    { x: ankle.x + d * 22, y: ankle.y + 2 },
+    { x: ankle.x + d * 20, y: ankle.y + 8 },
+    { x: ankle.x - d * 7, y: ankle.y + 8 },
+    { x: ankle.x - d * 10, y: ankle.y + 3 }
+  ]);
+}
+function kqFrontFoot(ankle, sign) {
+  return kqSmoothClosed([
+    { x: ankle.x - 8, y: ankle.y + 1 },
+    { x: ankle.x + 8, y: ankle.y + 1 },
+    { x: ankle.x + 9, y: ankle.y + 8 },
+    { x: ankle.x + sign * 4, y: ankle.y + 11 },
+    { x: ankle.x - 8, y: ankle.y + 8 }
+  ]);
+}
+function kqSideHead(h, shoulder, face) {
+  const u = kqUnit(h, shoulder);
+  let tilt = Math.atan2(u.x, u.y) * 180 / Math.PI;
+  if (tilt > 180) tilt -= 360;
+  tilt = Math.max(-22, Math.min(22, tilt));
+  const f = face >= 0 ? 1 : -1;
+  return `<g transform="translate(${kqF(h.x)} ${kqF(h.y)}) rotate(${kqF(tilt)})">
+    <ellipse class="skin" cx="${f * -13}" cy="2" rx="3.3" ry="4.6"/>
+    <ellipse class="skin" cx="0" cy="0" rx="12.2" ry="14.6"/>
+    <path class="skin" d="M ${f * 6} -1.5 L ${f * 16.5} 2.6 L ${f * 6.2} 6.4 Z"/>
+    <circle class="feat" cx="${f * 4.2}" cy="-1.2" r="1.15"/>
+  </g>`;
+}
+function kqSideTorso(pose, face) {
+  const S = pose.shoulder, L = pose.lumbar, H = pose.hip;
+  if (!S || !L || !H) return "";
+  const ant = kqAnt(S, H, face || 1);
+  const samples = [
+    Object.assign({ ant: 9, post: 8 }, S),
+    Object.assign({ ant: 16, post: 11 }, kqMid(S, L, 0.38)),
+    Object.assign({ ant: 12, post: 10 }, L),
+    Object.assign({ ant: 13, post: 14 }, kqMid(L, H, 0.5)),
+    Object.assign({ ant: 11, post: 17 }, H)
+  ];
+  return kqRibbon(samples, ant);
+}
+function kqSideSVG(pose, preset) {
+  const face = preset.face || 1;
+  const hot = preset.hot;
+  const H = pose.head, S = pose.shoulder, E = pose.elbow, W = pose.wrist, Hip = pose.hip, K = pose.knee, A = pose.ankle;
+  if (!H || !S || !Hip || !K || !A) return "";
+  const arm = hot === "arm", leg = hot === "leg", torso = hot === "torso";
+  let s = `<ellipse class="shade" cx="${kqF(A.x + face * 4)}" cy="${kqF(Math.min(286, A.y + 12))}" rx="26" ry="4.5"/>`;
+  s += kqSeg(Hip, K, 12, 8, leg);
+  s += kqSeg(K, A, 8, 5.6, leg);
+  s += `<path class="skin${leg ? " hot" : ""}" d="${kqShoe(A, face)}"/>`;
+  const ant = kqAnt(S, Hip, face);
+  s += `<circle class="skin${leg ? " hot" : ""}" cx="${kqF(K.x + ant.x * 2.2)}" cy="${kqF(K.y)}" r="6.4"/>`;
+  const td = kqSideTorso(pose, face);
+  if (td) s += `<path class="skin${torso ? " hot" : ""}" d="${td}"/>`;
+  s += `<circle class="skin${torso ? " hot" : ""}" cx="${kqF(S.x)}" cy="${kqF(S.y)}" r="10"/>`;
+  if (E && W) {
+    s += kqSeg(S, E, 7.2, 5.5, arm);
+    s += kqSeg(E, W, 5.5, 4.2, arm);
+    const u = kqUnit(E, W);
+    const hand = { x: W.x + u.x * 7, y: W.y + u.y * 7 };
+    const c = `class="skin${arm ? " hot" : ""}"`;
+    s += `<circle ${c} cx="${kqF(W.x)}" cy="${kqF(W.y)}" r="4.6"/><circle ${c} cx="${kqF(hand.x)}" cy="${kqF(hand.y)}" r="3.5"/>`;
+  }
+  s += kqSeg(H, S, 5.4, 7, false);
+  s += kqSideHead(H, S, face);
+  return s;
+}
+function kqFrontTorso(pose) {
+  const sL = pose.shL, sR = pose.shR, hL = pose.hipL, hR = pose.hipR, head = pose.head;
+  if (!sL || !sR || !hL || !hR) return "";
+  const sM = kqMid(sL, sR), hM = kqMid(hL, hR);
+  const sDir = kqUnit(sL, sR);
+  const left = { x: -sDir.x, y: -sDir.y };
+  const out = (pt, w) => ({ x: pt.x + left.x * w, y: pt.y + left.y * w });
+  const wL = kqMid(sL, hL, 0.55), wR = kqMid(sR, hR, 0.55);
+  const cL = kqMid(sL, hL, 0.22), cR = kqMid(sR, hR, 0.22);
+  return kqSmoothClosed([
+    out(sL, 8), out(cL, 9), out(wL, 2.5), out(hL, 6),
+    { x: hM.x, y: hM.y + 11 },
+    out(hR, -6), out(wR, -2.5), out(cR, -9), out(sR, -8),
+    { x: sM.x + ((head ? head.x : sM.x) - sM.x) * 0.15, y: sM.y - 5 }
+  ]);
+}
+function kqFrontSVG(pose, preset) {
+  const hot = preset.hot;
+  const h = pose.head, sL = pose.shL, sR = pose.shR, hL = pose.hipL, hR = pose.hipR;
+  const kL = pose.kneeL, kR = pose.kneeR, aL = pose.ankleL, aR = pose.ankleR;
+  if (!h || !sL || !sR || !hL || !hR || !kL || !kR || !aL || !aR) return "";
+  const signL = sL.x <= sR.x ? -1 : 1, signR = -signL;
+  const arm = (sh, sign) => {
+    const elbow = { x: sh.x + sign * 11, y: sh.y + 34 };
+    const wrist = { x: sh.x + sign * 13, y: sh.y + 64 };
+    return kqSeg(sh, elbow, 6.4, 5.1, false) + kqSeg(elbow, wrist, 5.1, 4, false) +
+      `<circle class="skin" cx="${kqF(wrist.x)}" cy="${kqF(wrist.y)}" r="4.2"/>`;
+  };
+  const leg = (hip, knee, ankle, isHot, sign) => kqSeg(hip, knee, 12, 8.4, isHot) + kqSeg(knee, ankle, 8.2, 5.5, isHot) +
+    `<circle class="skin${isHot ? " hot" : ""}" cx="${kqF(knee.x)}" cy="${kqF(knee.y)}" r="7"/>` +
+    `<path class="skin${isHot ? " hot" : ""}" d="${kqFrontFoot(ankle, sign)}"/>`;
+  const sM = kqMid(sL, sR);
+  let s = `<ellipse class="shade" cx="${kqF((aL.x + aR.x) / 2)}" cy="${kqF(Math.min(286, Math.max(aL.y, aR.y) + 12))}" rx="36" ry="4.5"/>`;
+  s += arm(sL, signL) + arm(sR, signR);
+  s += leg(hL, kL, aL, hot === "legL", signL);
+  s += leg(hR, kR, aR, hot === "legR", signR);
+  s += kqSeg(hL, hR, 11, 11, false);
+  const td = kqFrontTorso(pose);
+  if (td) s += `<path class="skin${hot === "torso" ? " hot" : ""}" d="${td}"/>`;
+  s += `<circle class="skin" cx="${kqF(sL.x)}" cy="${kqF(sL.y)}" r="8.2"/>`;
+  s += `<circle class="skin" cx="${kqF(sR.x)}" cy="${kqF(sR.y)}" r="8.2"/>`;
+  s += kqSeg(h, sM, 5.6, 8, false);
+  s += `<ellipse class="skin" cx="${kqF(h.x - 13)}" cy="${kqF(h.y + 1)}" rx="3.1" ry="4.3"/>`;
+  s += `<ellipse class="skin" cx="${kqF(h.x + 13)}" cy="${kqF(h.y + 1)}" rx="3.1" ry="4.3"/>`;
+  s += `<ellipse class="skin" cx="${kqF(h.x)}" cy="${kqF(h.y)}" rx="12.4" ry="14.6"/>`;
+  s += `<circle class="feat" cx="${kqF(h.x - 4.2)}" cy="${kqF(h.y - 1)}" r="1.15"/>`;
+  s += `<circle class="feat" cx="${kqF(h.x + 4.2)}" cy="${kqF(h.y - 1)}" r="1.15"/>`;
+  s += `<path class="feat-line" fill="none" stroke="#4a332c" stroke-width="1.2" stroke-linecap="round" d="M ${kqF(h.x - 3.2)} ${kqF(h.y + 5)} Q ${kqF(h.x)} ${kqF(h.y + 7.4)} ${kqF(h.x + 3.2)} ${kqF(h.y + 5)}"/>`;
+  return s;
+}
+function kqPaintFigure(el, pose, preset, mode) {
+  if (!el || !pose) return;
+  el.setAttribute("class", mode || "");
+  el.innerHTML = (preset.view === "front" ? kqFrontSVG(pose, preset) : kqSideSVG(pose, preset)) || "";
+}
 function kqPreset(id) { return STUDIO.find(p => p.id === id) || STUDIO[0]; }
 function kqOpenStudio(id) { KQ.studio = null; KQ.wantPreset = id; go("studio"); }
 function kqEnsureStudio() {
@@ -661,11 +859,8 @@ function kqStudioSync() {
   const st = KQ.studio; if (!st) return;
   const p = kqPreset(st.id), pose = kqDisplayed(), m = p.metric(pose);
   const ghost = {}; p.nodes.forEach(n => ghost[n.id] = { x: n.tx, y: n.ty });
-  const setLine = (el, a, b) => { if (!el) return; el.setAttribute("x1", a.x); el.setAttribute("y1", a.y); el.setAttribute("x2", b.x); el.setAttribute("y2", b.y); };
-  p.bones.forEach(([a, b], i) => {
-    setLine($("#gb-" + i), ghost[a], ghost[b]);
-    const ln = $("#bb-" + i); setLine(ln, pose[a], pose[b]); if (ln) ln.setAttribute("class", "bone " + m.zone);
-  });
+  kqPaintFigure($("#st-ghost"), ghost, p, "ghost");
+  kqPaintFigure($("#st-body"), pose, p, m.zone);
   p.nodes.forEach(n => {
     const g = $("#nd-" + n.id); if (!g) return;
     g.setAttribute("transform", `translate(${pose[n.id].x.toFixed(1)} ${pose[n.id].y.toFixed(1)})`);
@@ -679,7 +874,12 @@ function kqStudioSync() {
       const [x1, y1, x2, y2] = ar;
       $("#st-fl").setAttribute("x1", x1); $("#st-fl").setAttribute("y1", y1); $("#st-fl").setAttribute("x2", x2); $("#st-fl").setAttribute("y2", y2);
       const h = arrowHead(x1, y1, x2, y2); $("#st-fh").setAttribute("points", h.pts);
-      const lab = $("#st-flab"); lab.setAttribute("x", (x1 + x2) / 2); lab.setAttribute("y", (y1 + y2) / 2 - 6); lab.textContent = p.force;
+      const lab = $("#st-flab");
+      const mx = (x1 + x2) / 2, my = Math.max(18, (y1 + y2) / 2 - 8);
+      lab.setAttribute("x", Math.max(40, Math.min(176, mx)));
+      lab.setAttribute("y", my);
+      lab.setAttribute("text-anchor", mx > 150 ? "end" : mx < 55 ? "start" : "middle");
+      lab.textContent = p.force;
     }
   }
   const box = $("#st-read"); if (box) box.innerHTML = `<b class="z-${m.zone === "amber" ? "yellow" : m.zone}">${esc(m.text)}</b><span class="small mut sub">${esc(m.sub)}</span>`;
@@ -698,15 +898,15 @@ function kqRenderStudio() {
   const dragNodes = p.nodes.filter(n => n.drag);
   if (st.sel && !dragNodes.some(n => n.id === st.sel)) st.sel = null;
   v.innerHTML = `<div class="card tight"><h2>Studio correzione</h2>
-    <p class="small mut">Trascina i nodi con l'anello, oppure scegli un nodo nel pannello in basso e trascina in un punto qualsiasi dello schema: il dito non copre il punto. Il colore segue l'angolo chiave: rosso, ambra, verde.</p>
+    <p class="small mut">Figura di riferimento, con segmenti e articolazioni. Trascina i punti con l'anello, oppure scegli un nodo nel pannello e trascina sullo schema: il dito non copre il punto. Il tratto evidenziato e il colore seguono l'angolo chiave: rosso, ambra, verde. La sagoma tratteggiata è la posizione di arrivo.</p>
     <div class="chips" id="st-pres">${STUDIO.map(x => `<button type="button" class="chip ${x.id === p.id ? "on" : ""}" data-pre="${x.id}">${esc(x.sport)}</button>`).join("")}</div>
     <p class="small" style="margin:8px 0 0"><b>${esc(p.title)}</b><br><span class="mut">${esc(p.note)}</span></p></div>
-    <div class="boardwrap studio-wrap stick" id="st-wrap"><svg id="st-svg" viewBox="0 0 200 280" aria-label="Scheletro da correggere">
-      <rect width="200" height="280" fill="#0d1a26"/>
-      <g id="st-ghost">${p.bones.map((_, i) => `<line id="gb-${i}" class="bone ghost"/>`).join("")}</g>
-      <g id="st-bones">${p.bones.map((_, i) => `<line id="bb-${i}" class="bone"/>`).join("")}</g>
+    <div class="boardwrap studio-wrap stick" id="st-wrap"><svg id="st-svg" viewBox="-12 -8 224 300" aria-label="Figura da correggere">
+      <rect x="-12" y="-8" width="224" height="300" fill="#0d1a26"/>
+      <g id="st-ghost"></g>
+      <g id="st-body"></g>
       <g id="st-force" visibility="hidden"><line id="st-fl"/><polygon id="st-fh"/><text id="st-flab"></text></g>
-      <g id="st-nodes">${p.nodes.map(n => `<g id="nd-${n.id}" class="nd ${n.drag ? "drag" : ""}" data-node="${n.id}"><circle r="${n.drag ? 11 : 5}"/></g>`).join("")}</g>
+      <g id="st-nodes">${p.nodes.map(n => `<g id="nd-${n.id}" class="nd ${n.drag ? "drag" : ""}" data-node="${n.id}"><circle class="hit" r="16"/><circle class="joint" r="${n.drag ? 6.5 : 3.5}"/></g>`).join("")}</g>
     </svg></div>
     ${kqDockHTML("st-dock", `<div id="st-read" class="dock-read"></div>
         <div class="dock-row"><label class="dock-lbl" for="st-morph">Ghost <b id="st-mv">${Math.round(st.morph * 100)}%</b></label>
@@ -722,7 +922,7 @@ function kqRenderStudio() {
         <p class="small mut">In zona rossa: doppio impulso. Quando entri nel verde: un impulso breve, un tono e, se attiva, una frase. Se il telefono non supporta vibrazione o voce, restano il colore e i gradi.</p>${DISCLAIMER}`)}`;
   $$("[data-pre]", v).forEach(b => b.onclick = () => { KQ.studio = null; KQ.wantPreset = b.dataset.pre; kqRenderStudio(); });
   const dock = $("#st-dock", v), svg = $("#st-svg", v);
-  const fit = () => kqFitBox(svg, dock, [200 / 280], { x: 16, y: 18 });
+  const fit = () => kqFitBox(svg, dock, [224 / 300], { x: 16, y: 18 });
   KQM.fit = fit;
   kqDockBind(dock, () => fit());
   fit();
@@ -1140,55 +1340,256 @@ function kqBindBell(svg, b) {
   svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
 }
 
-/* ---------- rete specialisti e test ---------- */
+/* ---------- rete specialisti, mappa e test ---------- */
+const KQ_NOMINATIM = "https://nominatim.openstreetmap.org/search";
+const KQ_GEO_KEY = "kinetiq.geo.v1";
+const KQ_PIN = { maestro: "#05f3fa", fisio: "#34d399", prep: "#fbbf24" };
+const KQ_DISTS = [[0, "Tutte"], [5, "5 km"], [15, "15 km"], [30, "30 km"], [50, "50 km"]];
+function kqNum(v) { const n = parseFloat(String(v ?? "").trim().replace(",", ".")); return Number.isFinite(n) ? n : null; }
+function kqValidLL(lat, lon) { return lat != null && lon != null && Math.abs(lat) <= 90 && Math.abs(lon) <= 180; }
+function kqKm(a, b) {
+  if (!a || !b || !Number.isFinite(+a.lat) || !Number.isFinite(+b.lat) || !Number.isFinite(+a.lon) || !Number.isFinite(+b.lon)) return null;
+  const R = 6371, dLat = (b.lat - a.lat) * Math.PI / 180, dLon = (b.lon - a.lon) * Math.PI / 180;
+  const s = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(s)));
+}
+function kqFmtKm(km) {
+  if (km == null) return "";
+  if (km < 1) return Math.max(1, Math.round(km * 1000)) + " m";
+  return (km < 10 ? km.toFixed(1).replace(".", ",") : String(Math.round(km))) + " km";
+}
+function kqGeoCache() {
+  try { const o = JSON.parse(localStorage.getItem(KQ_GEO_KEY)); if (o && typeof o === "object") return o; } catch (e) { }
+  return {};
+}
+function kqGeoSave(cache) {
+  try {
+    const keys = Object.keys(cache);
+    if (keys.length > 80) keys.slice(0, keys.length - 80).forEach(k => delete cache[k]);
+    localStorage.setItem(KQ_GEO_KEY, JSON.stringify(cache));
+  } catch (e) { }
+}
+let kqGeoChain = Promise.resolve();
+function kqGeocode(q) {
+  const query = String(q || "").trim().replace(/\s+/g, " ");
+  if (query.length < 3) return Promise.resolve(null);
+  const key = query.toLowerCase();
+  const hit = kqGeoCache()[key];
+  if (hit && Number.isFinite(+hit.lat) && Number.isFinite(+hit.lon)) return Promise.resolve({ lat: +hit.lat, lon: +hit.lon, label: hit.label || query });
+  const job = async () => {
+    const wait = Math.max(0, (KQ.lastNom || 0) + 1100 - Date.now());
+    if (wait) await new Promise(r => setTimeout(r, wait));
+    KQ.lastNom = Date.now();
+    const url = `${KQ_NOMINATIM}?format=jsonv2&limit=1&accept-language=it&q=${encodeURIComponent(query)}`;
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 12000);
+    try {
+      const r = await fetch(url, { headers: { Accept: "application/json" }, signal: ctl.signal });
+      if (!r.ok) return null;
+      const arr = await r.json();
+      const row = arr && arr[0];
+      if (!row || !Number.isFinite(+row.lat) || !Number.isFinite(+row.lon)) return null;
+      const out = { lat: +row.lat, lon: +row.lon, label: row.display_name || query };
+      const c = kqGeoCache(); c[key] = out; kqGeoSave(c);
+      return out;
+    } catch (e) { return null; }
+    finally { clearTimeout(t); }
+  };
+  const p = kqGeoChain.then(job, job);
+  kqGeoChain = p.then(() => { }, () => { });
+  return p;
+}
+function kqLoadPos() {
+  if (KQ.userPos) return;
+  try {
+    const o = JSON.parse(sessionStorage.getItem("kinetiq.pos") || "null");
+    if (o && Number.isFinite(+o.lat) && Number.isFinite(+o.lon)) KQ.userPos = { lat: +o.lat, lon: +o.lon };
+    if (!KQ.originCity) KQ.originCity = sessionStorage.getItem("kinetiq.posLabel") || "";
+  } catch (e) { }
+}
+function kqSavePos(pos, label) {
+  KQ.userPos = { lat: pos.lat, lon: pos.lon };
+  if (label != null) KQ.originCity = label;
+  try {
+    sessionStorage.setItem("kinetiq.pos", JSON.stringify(KQ.userPos));
+    if (label != null) sessionStorage.setItem("kinetiq.posLabel", label);
+  } catch (e) { }
+}
+function kqShownSpecs() {
+  kqLoadPos();
+  const list = S.specialists || [];
+  const sport = KQ.specSport || "all", role = KQ.specRole || "all";
+  const city = (KQ.specCity || "").trim().toLowerCase(), distMax = +KQ.specDist || 0, origin = KQ.userPos;
+  return list.filter(s => {
+    if (sport !== "all" && !(s.sports || []).includes(sport)) return false;
+    if (role !== "all" && s.role !== role) return false;
+    if (city && !(s.city || "").toLowerCase().includes(city) && !(s.address || "").toLowerCase().includes(city)) return false;
+    if (distMax > 0 && origin) {
+      const km = kqKm(origin, s);
+      if (km == null || km > distMax) return false;
+    }
+    return true;
+  });
+}
+function kqEnsureLeaflet() {
+  if (window.L && window.L.map) return Promise.resolve();
+  if (!document.querySelector("link[data-leaflet]")) {
+    const l = document.createElement("link");
+    l.rel = "stylesheet"; l.href = "vendor/leaflet/leaflet.css"; l.dataset.leaflet = "1";
+    document.head.appendChild(l);
+  }
+  return kqLoadScript("vendor/leaflet/leaflet.js");
+}
+function kqPinIcon(role) {
+  const c = KQ_PIN[role] || "#05f3fa";
+  return L.divIcon({ className: "sp-pin", html: `<span style="background:${c}"></span>`, iconSize: [16, 16], iconAnchor: [8, 8] });
+}
+function kqPinPopup(s, km) {
+  const bits = [`<b>${esc(s.name)}</b>`, `<div>${esc(KQ_ROLE[s.role] || "")}</div>`];
+  if (s.address) bits.push(`<div>${esc(s.address)}</div>`);
+  if (s.city) bits.push(`<div>${esc(s.city)}</div>`);
+  if (km != null) bits.push(`<div>${esc(kqFmtKm(km))} da te</div>`);
+  bits.push(`<div style="margin-top:6px"><a href="${esc(kqWaLink(s.phone, KQ.waZone ? kqReport(KQ.waZone) : ""))}" target="_blank" rel="noopener">WhatsApp</a></div>`);
+  return bits.join("");
+}
+function kqMapBoot(root, shown) {
+  const el = $("#sp-map", root);
+  if (!el) return;
+  kqEnsureLeaflet().then(() => {
+    if (!el.isConnected || !window.L) return;
+    if (KQ.map) { try { KQ.map.remove(); } catch (e) { } KQ.map = null; }
+    const map = L.map(el, { scrollWheelZoom: false, zoomControl: true });
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
+    }).addTo(map);
+    const bounds = [];
+    (shown || []).forEach(s => {
+      if (!Number.isFinite(+s.lat) || !Number.isFinite(+s.lon)) return;
+      const km = KQ.userPos ? kqKm(KQ.userPos, s) : null;
+      L.marker([+s.lat, +s.lon], { icon: kqPinIcon(s.role), title: s.name, keyboard: true }).addTo(map).bindPopup(kqPinPopup(s, km));
+      bounds.push([+s.lat, +s.lon]);
+    });
+    if (KQ.userPos && Number.isFinite(KQ.userPos.lat)) {
+      const me = L.divIcon({ className: "me-pin", html: "<span></span>", iconSize: [14, 14], iconAnchor: [7, 7] });
+      L.marker([KQ.userPos.lat, KQ.userPos.lon], { icon: me, title: "La tua posizione", zIndexOffset: 500, keyboard: false }).addTo(map);
+      bounds.push([KQ.userPos.lat, KQ.userPos.lon]);
+    }
+    if (bounds.length === 1) map.setView(bounds[0], 13);
+    else if (bounds.length > 1) map.fitBounds(bounds, { padding: [28, 28], maxZoom: 14 });
+    else map.setView([42.5, 12.5], 5);
+    KQ.map = map;
+    setTimeout(() => { if (KQ.map === map) map.invalidateSize(); }, 80);
+  }).catch(() => {
+    if (el.isConnected) el.innerHTML = `<p class="small mut" style="padding:12px">Mappa non caricata. Controlla la connessione: le tessere arrivano da OpenStreetMap.</p>`;
+  });
+}
 function kqRenderRete() {
+  if (KQ.map) { try { KQ.map.remove(); } catch (e) { } KQ.map = null; }
   const v = $("#view-rete");
   v.innerHTML = KQ.rete === "test" ? `<div id="rete-ui"></div>${kqTestHTML()}` : `${kqSpecsHTML()}<article id="test-sheet" hidden></article>`;
   if (KQ.rete === "test") { $("#rete-ui", v).innerHTML = ""; $("#kq-print", v).onclick = kqPrintTest; }
   else kqBindSpecs(v);
 }
 function kqSpecsHTML() {
+  kqLoadPos();
   const list = S.specialists || [];
   const cities = [...new Set(list.map(s => (s.city || "").trim()).filter(Boolean))];
-  const sport = KQ.specSport || "all";
-  const city = (KQ.specCity || "").trim().toLowerCase();
-  const shown = list.filter(s => (sport === "all" || (s.sports || []).includes(sport)) && (!city || (s.city || "").toLowerCase().includes(city)));
+  const sport = KQ.specSport || "all", role = KQ.specRole || "all", dist = +KQ.specDist || 0;
+  const shown = kqShownSpecs();
+  const origin = KQ.userPos;
+  const pinned = shown.filter(s => Number.isFinite(+s.lat) && Number.isFinite(+s.lon)).length;
+  const distWarn = dist > 0 && !origin;
   return `<div id="rete-ui"><div class="card"><h2>Rete specialisti</h2>
-    <p class="small mut">Elenco vuoto finché non aggiungi tu i contatti. Nessun nominativo di esempio e nessun badge di verifica: la rubrica è la tua.</p>
+    <p class="small mut">I contatti li aggiungi tu: nessun nominativo di esempio. Sulla mappa compaiono solo quelli con un indirizzo trovato, o con coordinate inserite a mano.</p>
     <div class="alert yellow"><span>⚕️</span><div>KinetIQ non sostituisce il medico, il fisioterapista o il coach. Il tasto WhatsApp prepara solo un messaggio.</div></div>
     <label class="lbl">Sport</label>
     <div class="chips" data-group="sp-sport"><button type="button" class="chip ${sport === "all" ? "on" : ""}" data-val="all">Tutti</button>${SPORT_IDS.map(id => `<button type="button" class="chip ${sport === id ? "on" : ""}" data-val="${id}">${sportIcon(id, 18)}${esc(SPORTS[id])}</button>`).join("")}</div>
+    <label class="lbl">Tipo</label>
+    <div class="chips" data-group="sp-role"><button type="button" class="chip ${role === "all" ? "on" : ""}" data-val="all">Tutti</button>${KQ_ROLES.map(([id, l]) => `<button type="button" class="chip ${role === id ? "on" : ""}" data-val="${id}">${esc(l)}</button>`).join("")}</div>
     <label class="lbl" for="sp-city">Città</label>
     <input class="field" id="sp-city" list="sp-cities" placeholder="Filtra per città" value="${esc(KQ.specCity || "")}">
     <datalist id="sp-cities">${cities.map(c => `<option value="${esc(c)}">`).join("")}</datalist>
-    <button type="button" class="btn pri block" id="sp-add" style="margin-top:12px">${KQ.specOpen ? "Chiudi scheda" : "+ Aggiungi contatto"}</button>
+    <label class="lbl">Distanza da te</label>
+    <div class="chips" data-group="sp-dist">${KQ_DISTS.map(([n, l]) => `<button type="button" class="chip ${dist === n ? "on" : ""}" data-val="${n}">${l}</button>`).join("")}</div>
+    ${distWarn ? `<p class="small" style="margin-top:8px">Per filtrare per distanza indica la tua posizione oppure una città di riferimento.</p>` : ""}
+    <div id="sp-map" class="sp-map" role="region" aria-label="Mappa degli specialisti"></div>
+    <div class="map-legend small"><span><i class="maestro"></i>Maestro</span><span><i class="fisio"></i>Fisioterapista</span><span><i class="prep"></i>Preparatore</span><span><i class="me"></i>Tu</span></div>
+    <p class="small mut" style="margin-top:6px">${pinned ? pinned + (pinned === 1 ? " pin sulla mappa" : " pin sulla mappa") : "Nessun pin ancora"}${shown.length - pinned > 0 ? ` · ${shown.length - pinned} senza posizione` : ""}. La ricerca dell'indirizzo usa Nominatim (OpenStreetMap), al massimo una richiesta al secondo, e il risultato resta su questo telefono.</p>
+    <div class="btns" style="margin-top:8px"><button type="button" class="btn sm" id="sp-loc">La mia posizione</button></div>
+    <label class="lbl" for="sp-origin">Città di riferimento</label>
+    <div class="origin-row"><input class="field" id="sp-origin" maxlength="80" placeholder="es. Torino, se il GPS non è disponibile" value="${esc(KQ.originCity || "")}"><button type="button" class="btn sm" id="sp-origin-go">Usa</button></div>
+    <p class="small mut">La posizione serve solo a calcolare le distanze e non viene inviata insieme all'indirizzo dei contatti.</p>
+    <button type="button" class="btn pri block" id="sp-add" style="margin-top:12px">${KQ.specOpen ? "Chiudi scheda" : "+ Aggiungi specialista"}</button>
     <div id="sp-form"${KQ.specOpen ? "" : " hidden"}></div></div>
     <div class="card"><h3>${shown.length ? shown.length + " contatt" + (shown.length === 1 ? "o" : "i") : "Nessun contatto"}</h3>
-    ${shown.length ? shown.map(s => `<div class="threq"><div class="row between"><b>${esc(s.name)}</b><span class="pill">${esc(KQ_ROLE[s.role] || "")}</span></div>
+    ${shown.length ? shown.map(s => {
+      const km = origin ? kqKm(origin, s) : null;
+      return `<div class="threq"><div class="row between"><b>${esc(s.name)}</b><span class="pill">${esc(KQ_ROLE[s.role] || "")}</span></div>
       <div class="small">${esc(s.title || "")}</div>
-      <div class="small mut">${(s.sports || []).map(id => SPORTS[id] || id).join(", ")} · ${esc(s.city || "")} · ${(s.modes || []).map(m => m === "video" ? "video consulto" : "studio").join(" / ")}</div>
+      <div class="small mut">${(s.sports || []).map(id => SPORTS[id] || id).join(", ")} · ${esc([s.address, s.city].filter(Boolean).join(", ") || "senza indirizzo")}${(s.modes || []).length ? " · " + (s.modes || []).map(m => m === "video" ? "video consulto" : "studio").join(" / ") : ""}${km != null ? " · " + esc(kqFmtKm(km)) : ""}${Number.isFinite(+s.lat) ? "" : " · senza pin"}</div>
       <div class="btns" style="margin-top:8px"><a class="btn sm pri" href="${esc(kqWaLink(s.phone, KQ.waZone ? kqReport(KQ.waZone) : ""))}" target="_blank" rel="noopener">WhatsApp</a>
         ${kqPhone(s.phone).length >= 8 ? `<a class="btn sm" href="${esc(kqTelLink(s.phone))}" aria-label="Chiama ${esc(s.name)}">Chiama</a>` : ""}
-        <button type="button" class="btn sm danger" data-del="${esc(s.id)}">Elimina</button></div></div>`).join("")
-      : `<div class="empty">Aggiungi maestro, fisioterapista o preparatore. I filtri per sport e città compariranno quando ci saranno contatti.</div>`}
+        <button type="button" class="btn sm danger" data-del="${esc(s.id)}">Elimina</button></div></div>`;
+    }).join("")
+      : `<div class="empty">Aggiungi maestro, fisioterapista o preparatore. Con un indirizzo, o con le coordinate, il contatto compare sulla mappa.</div>`}
     </div>${DISCLAIMER}</div>`;
 }
 function kqSpecForm() {
   const sports = SPORT_IDS.map(id => `<button type="button" class="chip" data-sp="${id}">${sportIcon(id, 18)}${esc(SPORTS[id])}</button>`).join("");
-  return `<div class="pvblock"><label class="lbl" for="sf-name">Nome</label><input class="field" id="sf-name" maxlength="80" placeholder="Nome e cognome">
+  return `<div class="pvblock"><h3>Aggiungi specialista</h3>
+    <label class="lbl" for="sf-name">Nome</label><input class="field" id="sf-name" maxlength="80" placeholder="Nome e cognome">
     <label class="lbl" for="sf-title">Qualifica</label><input class="field" id="sf-title" maxlength="80" placeholder="es. Maestro, fisioterapista, chinesiologo">
     <label class="lbl">Ruolo</label><div class="chips" id="sf-role">${KQ_ROLES.map(([id, l], i) => `<button type="button" class="chip ${i === 0 ? "on" : ""}" data-role="${id}">${l}</button>`).join("")}</div>
     <label class="lbl">Sport</label><div class="chips" id="sf-sports">${sports}</div>
+    <label class="lbl" for="sf-addr">Indirizzo</label><input class="field" id="sf-addr" maxlength="120" placeholder="Via e numero">
     <label class="lbl" for="sf-city">Città</label><input class="field" id="sf-city" maxlength="60" placeholder="es. Torino">
+    <p class="small mut">L'indirizzo viene cercato su OpenStreetMap al momento del salvataggio. Se non esce nulla, inserisci latitudine e longitudine (le trovi tenendo premuto su una mappa).</p>
+    <div class="grid2"><div><label class="lbl" for="sf-lat">Latitudine</label><input class="field" id="sf-lat" inputmode="decimal" placeholder="45.0703"></div>
+      <div><label class="lbl" for="sf-lon">Longitudine</label><input class="field" id="sf-lon" inputmode="decimal" placeholder="7.6869"></div></div>
+    <div class="alert yellow" id="sf-geo-note" hidden style="margin-top:10px"><span>📍</span><div>Nessun risultato. Controlla via e città, inserisci le coordinate, oppure salva il contatto senza pin.
+      <button type="button" class="btn sm" id="sf-skip" style="margin-top:8px">Salva senza pin</button></div></div>
     <label class="lbl">Modalità</label><div class="chips" id="sf-mode"><button type="button" class="chip on" data-mode="studio">Studio</button><button type="button" class="chip" data-mode="video">Video consulto</button></div>
     <label class="lbl" for="sf-phone">Telefono WhatsApp</label><input class="field" id="sf-phone" type="tel" inputmode="tel" placeholder="es. 333 1234567">
-    <button type="button" class="btn pri block" id="sf-save" style="margin-top:12px">Salva contatto</button></div>`;
+    <button type="button" class="btn pri block" id="sf-save" style="margin-top:12px">Salva specialista</button></div>`;
 }
 function kqBindSpecs(v) {
+  const shown = kqShownSpecs();
   bindChips(v, "sp-sport", val => { KQ.specSport = val; render(); });
+  bindChips(v, "sp-role", val => { KQ.specRole = val; render(); });
+  bindChips(v, "sp-dist", val => { KQ.specDist = +val || 0; render(); });
   const city = $("#sp-city", v); if (city) city.oninput = () => {
-    KQ.specCity = city.value; const pos = city.selectionStart; render();
-    const c = $("#sp-city"); if (c) { c.focus(); try { c.setSelectionRange(pos, pos); } catch (e) { } }
+    KQ.specCity = city.value;
+    const pos = city.selectionStart;
+    clearTimeout(KQ.cityT);
+    KQ.cityT = setTimeout(() => {
+      render();
+      const c = $("#sp-city"); if (c) { c.focus(); try { c.setSelectionRange(pos, pos); } catch (e) { } }
+    }, 400);
+  };
+  const origin = $("#sp-origin", v);
+  if (origin) origin.oninput = () => { KQ.originCity = origin.value; };
+  const useOrigin = $("#sp-origin-go", v);
+  if (useOrigin) useOrigin.onclick = async () => {
+    const q = (origin.value || "").trim();
+    if (q.length < 2) return toast("Scrivi una città");
+    useOrigin.disabled = true;
+    const g = await kqGeocode(q);
+    useOrigin.disabled = false;
+    if (!g) return toast("Città non trovata");
+    kqSavePos(g, q);
+    toast("Distanze calcolate da " + q);
+    render();
+  };
+  const loc = $("#sp-loc", v);
+  if (loc) loc.onclick = () => {
+    if (!navigator.geolocation) return toast("Geolocalizzazione non disponibile su questo dispositivo");
+    loc.disabled = true;
+    navigator.geolocation.getCurrentPosition(pos => {
+      kqSavePos({ lat: pos.coords.latitude, lon: pos.coords.longitude }, KQ.originCity || "La mia posizione");
+      toast("Posizione aggiornata, solo su questo telefono");
+      render();
+    }, () => { loc.disabled = false; toast("Posizione non disponibile. Usa una città di riferimento."); }, { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 });
   };
   $("#sp-add", v).onclick = () => { KQ.specOpen = !KQ.specOpen; render(); };
   const form = $("#sp-form", v);
@@ -1198,21 +1599,43 @@ function kqBindSpecs(v) {
     $$("#sf-role .chip", form).forEach(b => b.onclick = () => { role = b.dataset.role; $$("#sf-role .chip", form).forEach(x => x.classList.toggle("on", x === b)); });
     $$("#sf-sports .chip", form).forEach(b => b.onclick = () => { const id = b.dataset.sp; sports.has(id) ? sports.delete(id) : sports.add(id); b.classList.toggle("on", sports.has(id)); });
     $$("#sf-mode .chip", form).forEach(b => b.onclick = () => { const id = b.dataset.mode; modes.has(id) ? modes.delete(id) : modes.add(id); b.classList.toggle("on", modes.has(id)); });
-    $("#sf-save", form).onclick = () => {
+    const commit = async skipGeo => {
       const name = $("#sf-name", form).value.trim(), phone = $("#sf-phone", form).value.trim();
       if (!name) return toast("Inserisci il nome");
       if (kqPhone(phone).length < 8) return toast("Inserisci un telefono WhatsApp");
       if (!sports.size) return toast("Scegli almeno uno sport");
       if (!modes.size) return toast("Scegli studio, video consulto o entrambi");
+      const address = $("#sf-addr", form).value.trim(), cityV = $("#sf-city", form).value.trim();
+      let lat = kqNum($("#sf-lat", form).value), lon = kqNum($("#sf-lon", form).value), geoLabel = "";
+      const btn = $("#sf-save", form);
+      if ((lat != null || lon != null) && !kqValidLL(lat, lon)) return toast("Controlla latitudine e longitudine");
+      if (!kqValidLL(lat, lon) && (address || cityV) && !skipGeo) {
+        if (btn) { btn.disabled = true; btn.textContent = "Cerco l'indirizzo…"; }
+        const g = await kqGeocode([address, cityV].filter(Boolean).join(", "));
+        if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = "Salva specialista"; }
+        if (!form.isConnected) return;
+        if (g) { lat = g.lat; lon = g.lon; geoLabel = g.label || ""; }
+        else {
+          const note = $("#sf-geo-note", form); if (note) note.hidden = false;
+          toast("Indirizzo non trovato");
+          return;
+        }
+      }
+      if (!kqValidLL(lat, lon)) { lat = null; lon = null; }
       S.specialists = S.specialists || [];
-      S.specialists.push({ id: uid(), name, title: $("#sf-title", form).value.trim(), role, sports: [...sports], city: $("#sf-city", form).value.trim(), modes: [...modes], phone });
-      KQ.specOpen = false; save(); toast("Contatto salvato su questo dispositivo"); render();
+      S.specialists.push({ id: uid(), name, title: $("#sf-title", form).value.trim(), role, sports: [...sports], city: cityV, address, lat, lon, geoLabel, modes: [...modes], phone });
+      KQ.specOpen = false; save();
+      toast(lat == null ? "Contatto salvato, senza pin" : "Specialista aggiunto sulla mappa");
+      render();
     };
+    $("#sf-save", form).onclick = () => commit(false);
+    const skip = $("#sf-skip", form); if (skip) skip.onclick = () => commit(true);
   }
   $$("[data-del]", v).forEach(b => b.onclick = () => {
     if (!confirm("Eliminare questo contatto da questo dispositivo?")) return;
     S.specialists = (S.specialists || []).filter(s => s.id !== b.dataset.del); save(); render();
   });
+  kqMapBoot(v, shown);
 }
 function kqTestHTML() {
   return `<article class="card" id="test-sheet">
@@ -1228,7 +1651,7 @@ function kqTestHTML() {
     <ul class="small"><li>Il semaforo (verde, giallo, rosso) coincide con il giudizio immediato?</li><li>Se il tester vede un rischio e l'app è verde, o il contrario, annota di quanto allargare o stringere la finestra.</li></ul>
     <h3>Fase C · Tre domande</h3>
     <ol class="small">
-      <li>Se mostri questa schermata con lo scheletro a un allievo, capisce il difetto più in fretta che con la sola spiegazione verbale?</li>
+      <li>Se mostri questa schermata con la figura del corpo a un allievo, capisce il difetto più in fretta che con la sola spiegazione verbale?</li>
       <li>Useresti questa schermata a fine lezione per mandare all'allievo il riassunto dell'errore su WhatsApp?</li>
       <li>Cosa manca su questa schermata che per te è fondamentale vedere prima di correggere il gesto?</li>
     </ol>

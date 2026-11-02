@@ -20,6 +20,8 @@ p{margin:0 0 8px}
 .top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:calc(10px + env(safe-area-inset-top,0px)) 14px 10px;background:rgba(18,31,44,.88);
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid #1b2c3e}
+.top-actions{display:flex;align-items:center;gap:6px;flex:none}
+.help-btn{width:36px;height:36px;min-width:36px;min-height:36px;border-radius:50%;border:1px solid var(--line);background:var(--bg2);color:var(--acc);font-weight:800;font-size:1.05rem;padding:0;line-height:1}
 .brand{display:flex;align-items:center;gap:10px;min-width:0}
 .logo{width:38px;height:38px;border-radius:50%;flex:none}
 .brand h1{margin:0;font-size:1.3rem;line-height:1.05;font-weight:800;letter-spacing:-.02em}
@@ -346,17 +348,28 @@ canvas.kb-cv{width:100%;height:auto;border-radius:12px;display:block;background:
 .shot.draft{opacity:.75}
 #board .ok circle{fill:#34d399} #board .bad circle{fill:#f87171}
 .studio-wrap{touch-action:none}
-#st-svg{width:100%;touch-action:none;display:block;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-#st-svg .nd.sel circle{stroke:var(--acc);stroke-width:2.4}
-#st-svg .bone{stroke-width:5;stroke-linecap:round;fill:none}
-#st-svg .bone.ghost{stroke:#34d399;opacity:.38;stroke-width:7}
-#st-svg .bone.red{stroke:#f87171} #st-svg .bone.amber{stroke:#fbbf24} #st-svg .bone.green{stroke:#34d399}
-#st-svg .nd circle{fill:#eef3ff}
-#st-svg .nd.drag circle{stroke:#fff;stroke-width:2}
-#st-svg .nd.red circle{fill:#f87171} #st-svg .nd.amber circle{fill:#fbbf24} #st-svg .nd.green circle{fill:#34d399}
-#st-fl{stroke:#f87171;stroke-width:2}
-#st-fh{fill:#f87171}
-#st-flab{fill:#fecaca;font-size:7px;text-anchor:middle}
+#st-svg{width:100%;touch-action:none;display:block;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;background:#0d1a26}
+#st-svg .skin{fill:#efc2a4;stroke:#6b4336;stroke-width:1.05;stroke-linejoin:round;stroke-linecap:round}
+#st-svg .red .skin{fill:#f6cbbd;stroke:#9f1239}
+#st-svg .amber .skin{fill:#f8e0b0;stroke:#a16207}
+#st-svg .green .skin{fill:#cfeedd;stroke:#047857}
+#st-svg .red .hot{fill:#f07167;stroke:#7f1d1d}
+#st-svg .amber .hot{fill:#f5b942;stroke:#92400e}
+#st-svg .green .hot{fill:#4ade80;stroke:#065f46}
+#st-svg .ghost .skin,#st-svg .ghost .hot{fill:rgba(52,211,153,.14);stroke:#34d399;stroke-width:1.35;stroke-dasharray:5 3.5}
+#st-svg .feat{fill:#4a332c;stroke:none}
+#st-svg .ghost .feat{fill:#34d399}
+#st-svg .ghost .feat-line{stroke:#34d399}
+#st-svg .shade{fill:rgba(0,0,0,.28);stroke:none}
+#st-svg .ghost .shade{display:none}
+#st-svg .nd .hit{fill:transparent;stroke:none}
+#st-svg .nd .joint{fill:#f8fafc;stroke:#0b1220;stroke-width:1.15}
+#st-svg .nd.drag .joint{stroke:#fff;stroke-width:2}
+#st-svg .nd.red .joint{fill:#fecaca} #st-svg .nd.amber .joint{fill:#fde68a} #st-svg .nd.green .joint{fill:#bbf7d0}
+#st-svg .nd.sel .joint{stroke:var(--acc);stroke-width:2.6}
+#st-fl{stroke:#fff7ed;stroke-width:2.4}
+#st-fh{fill:#fff7ed}
+#st-flab{fill:#fff7ed;font-size:7.5px;font-weight:700;text-anchor:middle}
 .splash{position:fixed;inset:0;z-index:80;background:var(--bg);display:flex;align-items:flex-end;justify-content:center;padding:18px}
 .splash[hidden]{display:none}
 .splash-card{width:min(420px,100%);background:linear-gradient(180deg,#172b3c,#101c28);border:1px solid var(--line);border-radius:24px;padding:28px 20px 22px;text-align:center}
@@ -518,3 +531,37 @@ body.stage-on .top{position:sticky;top:0;z-index:25;background:rgba(18,31,44,.96
 .og-card a{color:var(--acc)}
 .dock-read .dr-nav .btn{font-size:1.5rem;line-height:1;padding:0 14px}
 .ck-savebar{position:sticky;bottom:calc(var(--tabh) + var(--safe-b) + 6px);z-index:15;margin:12px -4px -4px;padding:10px 4px 4px;background:linear-gradient(180deg,rgba(18,28,49,0),#121c31 38%)}
+
+/* guida al primo avvio */
+.tour{position:fixed;inset:0;z-index:120}
+.tour[hidden]{display:none}
+.tour-catch{position:absolute;inset:0}
+.tour-hole{position:fixed;z-index:1;pointer-events:none;border-radius:16px;box-shadow:0 0 0 200vmax rgba(6,12,20,.78);outline:2px solid var(--acc);outline-offset:3px}
+.tour-card{position:fixed;z-index:2;left:14px;right:14px;max-width:520px;margin:0 auto;max-height:48vh;overflow:auto;
+  background:linear-gradient(180deg,#173044,#101c28);border:1px solid var(--acc);border-radius:18px;padding:14px 14px 12px;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+.tour-kicker{margin:0 0 4px;color:var(--acc);font-size:.75rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.tour-card h2{margin:0 0 6px;font-size:1.15rem}
+.tour-card p{margin:0 0 12px}
+.tour-nav{display:flex;gap:8px}
+.tour-nav .btn{flex:1}
+
+/* esercizi tecnici */
+.tech-ex{border-top:1px solid #1f3145;padding:12px 0}
+.tech-ex:first-of-type{border-top:0;padding-top:4px}
+.tech-ex h3{font-size:1rem;margin:0;line-height:1.25}
+.tech-ex ul{margin:0 0 6px;padding-left:18px}
+.tech-lv{margin:4px 0 10px}
+
+/* mappa rete specialisti */
+.sp-map{height:280px;border-radius:14px;border:1px solid var(--line);background:#dbe4ee;margin-top:8px;position:relative;z-index:0;isolation:isolate;overflow:hidden}
+.sp-map .leaflet-container{font:inherit;background:#dbe4ee;height:100%;width:100%}
+.sp-map .sp-pin.leaflet-div-icon,.sp-map .me-pin.leaflet-div-icon{background:transparent;border:none}
+.sp-pin span,.me-pin span{display:block;width:16px;height:16px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.45)}
+.me-pin span{width:14px;height:14px;background:#60a5fa;box-shadow:0 0 0 6px rgba(96,165,250,.28)}
+.map-legend{display:flex;flex-wrap:wrap;gap:10px 14px;margin-top:8px}
+.map-legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:middle;border:1px solid #fff}
+.map-legend .maestro{background:#05f3fa}.map-legend .fisio{background:#34d399}.map-legend .prep{background:#fbbf24}.map-legend .me{background:#60a5fa}
+.sp-map .leaflet-control-attribution{font-size:10px;line-height:1.2;max-width:72%;background:rgba(255,255,255,.88)}
+.origin-row{display:flex;gap:8px;align-items:center}
+.origin-row .field{flex:1;min-width:0}
+@media (max-width:390px){.sp-map{height:220px}}

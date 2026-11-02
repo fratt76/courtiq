@@ -1,6 +1,9 @@
 /* KinetIQ service worker: l'app funziona anche offline. Il percorso resta /courtiq/. */
-const CACHE = "courtiq-v8";
-const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./data.js", "./video.js", "./prevenzione.js", "./prevenzione-data.js", "./kinetiq.js", "./mobile.js", "./manifest.json",
+const CACHE = "courtiq-v9";
+const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./data.js", "./video.js", "./prevenzione.js", "./prevenzione-data.js", "./tecnica-data.js", "./kinetiq.js", "./mobile.js", "./manifest.json",
+  "./vendor/leaflet/leaflet.css", "./vendor/leaflet/leaflet.js",
+  "./vendor/leaflet/images/marker-icon.png", "./vendor/leaflet/images/marker-icon-2x.png", "./vendor/leaflet/images/marker-shadow.png",
+  "./vendor/leaflet/images/layers.png", "./vendor/leaflet/images/layers-2x.png",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./icons/kinetiq-logo.svg", "./icons/favicon-32.png", "./icons/favicon-16.png", "./favicon.ico", "./icons/sport/sport-icons-sprite.svg"];
 self.addEventListener("install", e => {
