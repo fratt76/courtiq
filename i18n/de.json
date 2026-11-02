@@ -45,5 +45,22 @@
   "auth.sendReset": "Link senden",
   "auth.account": "Dein Konto",
   "auth.hello": "Hallo",
-  "auth.openVerify": "Bestätigungslink öffnen (nur Entwicklung)"
+  "auth.openVerify": "Bestätigungslink öffnen (nur Entwicklung)",
+  "pricing.open": "Pläne",
+  "pricing.title": "Plan wählen",
+  "pricing.athlete": "BioKinetIQ Athlete",
+  "pricing.coach": "BioKinetIQ Coach",
+  "pricing.altAthlete": "Auch: BioKinetIQ Athlet",
+  "pricing.altCoach": "Auch: BioKinetIQ Trainer",
+  "pricing.trial": "1 Monat gratis, danach der gewählte Preis. In dieser Version keine echte Abbuchung.",
+  "pricing.perMonth": "pro Monat",
+  "pricing.perYear": "pro Jahr (11 Monate: ein Monat geschenkt)",
+  "pricing.monthBtn": "Monatliche Probe",
+  "pricing.yearBtn": "Jährliche Probe",
+  "pricing.back": "Schließen",
+  "pricing.needPlan": "Geführte Einheiten brauchen einen aktiven Plan oder eine Probe.",
+  "pricing.needCoach": "Der Coach-Modus gehört zu BioKinetIQ Coach.",
+  "pricing.local": "Stripe ist nicht eingerichtet: die Probe bleibt auf dem Server, ohne Karte und ohne Abbuchung.",
+  "pricing.stripe": "Stripe läuft im Testmodus: Testkarte, keine echte Zahlung.",
+  "pricing.started": "Probe gestartet. Keine Abbuchung."
 }

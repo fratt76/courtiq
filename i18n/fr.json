@@ -45,5 +45,22 @@
   "auth.sendReset": "Envoyer le lien",
   "auth.account": "Ton compte",
   "auth.hello": "Bonjour",
-  "auth.openVerify": "Ouvrir le lien de vérification (développement)"
+  "auth.openVerify": "Ouvrir le lien de vérification (développement)",
+  "pricing.open": "Formules",
+  "pricing.title": "Choisis la formule",
+  "pricing.athlete": "BioKinetIQ Athlete",
+  "pricing.coach": "BioKinetIQ Coach",
+  "pricing.altAthlete": "Autre nom : BioKinetIQ Athlète",
+  "pricing.altCoach": "Autre nom : BioKinetIQ Entraîneur",
+  "pricing.trial": "1 mois offert, puis le prix choisi. Aucun débit réel dans cette version.",
+  "pricing.perMonth": "par mois",
+  "pricing.perYear": "par an (11 mois : un mois offert)",
+  "pricing.monthBtn": "Essai mensuel",
+  "pricing.yearBtn": "Essai annuel",
+  "pricing.back": "Fermer",
+  "pricing.needPlan": "Les séances guidées demandent une formule active ou un essai.",
+  "pricing.needCoach": "Le mode Coach fait partie de BioKinetIQ Coach.",
+  "pricing.local": "Stripe n'est pas configuré : l'essai reste sur le serveur, sans carte ni débit.",
+  "pricing.stripe": "Stripe est en mode test : carte de test, pas un vrai paiement.",
+  "pricing.started": "Essai commencé. Aucun débit."
 }

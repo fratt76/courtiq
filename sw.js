@@ -1,6 +1,6 @@
 /* BioKinetIQ service worker: l'app funziona anche offline. Il percorso resta /courtiq/. */
-const CACHE = "biokinetiq-v13";
-const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./data.js", "./video.js", "./prevenzione.js", "./prevenzione-data.js", "./figures.js", "./tecnica-data.js", "./kinetiq.js", "./mobile.js", "./i18n.js", "./auth.js", "./manifest.json",
+const CACHE = "biokinetiq-v14";
+const ASSETS = ["./", "./index.html", "./style.css", "./app.js", "./data.js", "./video.js", "./prevenzione.js", "./prevenzione-data.js", "./figures.js", "./tecnica-data.js", "./kinetiq.js", "./mobile.js", "./i18n.js", "./auth.js", "./billing.js", "./manifest.json",
   "./i18n/bg.json", "./i18n/cs.json", "./i18n/da.json", "./i18n/de.json", "./i18n/el.json", "./i18n/en.json", "./i18n/es.json", "./i18n/et.json", "./i18n/fi.json", "./i18n/fr.json", "./i18n/ga.json", "./i18n/hr.json", "./i18n/hu.json", "./i18n/it.json", "./i18n/lt.json", "./i18n/lv.json", "./i18n/mt.json", "./i18n/nl.json", "./i18n/pl.json", "./i18n/pt.json", "./i18n/ro.json", "./i18n/sk.json", "./i18n/sl.json", "./i18n/sv.json",
   "./vendor/leaflet/leaflet.css", "./vendor/leaflet/leaflet.js",
   "./vendor/leaflet/images/marker-icon.png", "./vendor/leaflet/images/marker-icon-2x.png", "./vendor/leaflet/images/marker-shadow.png",
