@@ -55,7 +55,10 @@ function load() {
   } catch (e) { }
   return DEFAULT();
 }
-function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast("Spazio di archiviazione pieno"); } }
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { toast("Spazio di archiviazione pieno"); }
+  if (typeof coachPushStatus === "function") coachPushStatus();
+}
 
 /* ================= motore carichi e dolori ================= */
 const MIN_HISTORY_DAYS = 14, MIN_SESSIONS = 3;
@@ -162,6 +165,11 @@ function render(tab = TAB) {
   if (tab === "tecnica" && S.sport === "kettlebell") kqStartKbAnim();
 }
 function setMode(m) {
+  const billingReady = typeof BQ_BILLING_READY !== "undefined" && BQ_BILLING_READY;
+  if (m === "coach" && billingReady && typeof bqPlanOk === "function" && bqUser() && !bqPlanOk("coach")) {
+    if (typeof bqShowPricing === "function") bqShowPricing("coach");
+    m = "player";
+  }
   S.mode = m; save();
   $$(".mode button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   $("#tab-oggi-label").textContent = m === "coach" ? "Atleti" : (typeof t === "function" ? t("nav.today") : "Oggi");
@@ -223,6 +231,7 @@ function renderToday() {
   const draft = Object.entries(S.draftPains);
   const recent = info.sorted.slice(0, 8);
   v.innerHTML = `
+    <div id="athlete-trial"></div>
     ${kqPrematchHTML(info)}
     ${alertsHTML(info)}
     ${kqSpecBanner(info)}
@@ -296,6 +305,7 @@ function renderToday() {
   $("#exp").onclick = () => { const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 2)], { type: "application/json" })); a.download = `biokinetiq-${today()}.json`; a.click(); };
   $("#imp").onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => { try { const o = JSON.parse(t); if (!Array.isArray(o.sessions)) throw 0; S = Object.assign(DEFAULT(), o); save(); setMode(S.mode); toast("Dati importati"); } catch (_) { toast("File non valido"); } }); };
   $("#wipe").onclick = () => { if (confirm("Cancellare tutti i dati di BioKinetIQ su questo dispositivo?")) { S = DEFAULT(); save(); setMode("player"); toast("Dati cancellati"); } };
+  if (typeof coachMountTrial === "function") coachMountTrial();
   kqGaugeKick();
 }
 
@@ -325,24 +335,28 @@ function demoAthletes() {
   ];
 }
 function renderCoach() {
-  if (!S.athletes) { S.athletes = demoAthletes(); save(); }
+  if (!S.athletes) {
+    S.athletes = (typeof bqToken === "function" && bqToken()) ? [] : demoAthletes();
+    save();
+  }
+  const showLocal = S.athletes.length > 0 || !(typeof bqToken === "function" && bqToken());
   const v = $("#view-oggi");
   const rows = S.athletes.map(a => ({ a, i: analyze(a.sessions) }));
   const rank = { red: 0, yellow: 1, green: 3, low: 2, none: 4 };
   rows.sort((p, q) => (rank[p.i.zone] - rank[q.i.zone]) || (Object.keys(q.i.active).length - Object.keys(p.i.active).length));
   const over = rows.filter(r => r.i.zone === "red").length, hurt = rows.filter(r => r.i.riskyGroups.length).length;
-  v.innerHTML = `
-    <div class="card"><div class="row between"><h2>I tuoi atleti</h2><button type="button" class="btn sm pri" id="add-ath">+ Atleta</button></div>
+  const localCard = `<div class="card"><div class="row between"><h2>I tuoi atleti</h2><button type="button" class="btn sm pri" id="add-ath">+ Atleta</button></div>
       <div class="kpis"><div class="kpi"><b>${rows.length}</b><span>Atleti</span></div><div class="kpi"><b class="z-red">${over}</b><span>Sovraccarico</span></div><div class="kpi"><b class="z-yellow">${hurt}</b><span>Con fastidi</span></div></div>
       ${S.athletes.some(a => a.demo) ? `<p class="small mut" style="margin-top:10px">Gli atleti segnati "esempio" sono dati dimostrativi: puoi eliminarli dalla loro scheda.</p>` : ""}
       <div>${rows.map(({ a, i }) => { const [zl, zc] = ZONE_TXT[i.zone]; const pains = Object.entries(i.active);
         return `<button type="button" class="athlete" data-ath="${a.id}"><span class="avatar">${esc(a.name.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase())}</span>
           <span class="grow" style="flex:1;min-width:0"><span class="t" style="display:block;font-weight:700">${esc(a.name)} ${a.demo ? '<span class="pill grey">esempio</span>' : ""}</span>
           <span class="s small mut">${sportIcon(a.sport, 16)} ${esc(SPORTS[a.sport] || "")} · ${i.insufficient ? `<span class="insuff">${INSUFF_TXT}</span>` : "ACWR " + (i.ratio == null ? "–" : i.ratio.toFixed(2))}${pains.length ? " · " + pains.map(([z, p]) => `${esc(ZONES[z].label)} ${p.sev}/10`).join(", ") : ""}</span></span>
-          <span class="pill ${zc}">${zl}</span></button>`; }).join("") || `<div class="empty">Nessun atleta.</div>`}</div></div>
-    ${DISCLAIMER}`;
-  $("#add-ath").onclick = () => athleteForm();
+          <span class="pill ${zc}">${zl}</span></button>`; }).join("") || `<div class="empty">Nessun atleta.</div>`}</div></div>`;
+  v.innerHTML = `${showLocal ? localCard : ""}${DISCLAIMER}`;
+  if ($("#add-ath")) $("#add-ath").onclick = () => athleteForm();
   $$("[data-ath]", v).forEach(b => b.onclick = () => athleteSheet(b.dataset.ath));
+  if (typeof coachMount === "function") coachMount(v);
 }
 function athleteForm() {
   let sp = "tennis";
@@ -516,10 +530,11 @@ function renderDrills() {
       ${hidden ? `<p class="small mut">${hidden} drill nascost${hidden === 1 ? "o" : "i"} per proteggere le zone con fastidio.</p>` : ""}</div>
     ${cards ? kqDrillCardsHTML(list, info) : list.map(d => { const r = risky(d);
       return `<div class="card drill ${r.length ? "warn" : ""}" data-id="${d.id}"><button type="button" class="hd"><span class="ic">${sportIcon(d.sport, 24)}</span>
-        <span style="flex:1;min-width:0"><span class="t" style="display:block">${esc(d.title)}</span><span class="meta"><span class="pill">${esc(SPORTS[d.sport])}</span><span class="pill">${esc(d.cat)}</span><span class="pill">${esc(d.level)}</span><span class="pill">${esc(d.time)}</span>${r.length ? `<span class="pill red">Sollecita ${r.map(g => esc(GROUP_LABELS[g].toLowerCase())).join(", ")}</span>` : ""}</span></span>
+        <span style="flex:1;min-width:0"><span class="t" style="display:block">${esc(d.title)}</span><span class="meta"><span class="pill">${esc(SPORTS[d.sport])}</span><span class="pill">${esc(d.cat)}</span><span class="pill">${esc(d.level)}</span><span class="pill">${esc(d.time)}</span>${r.length ? `<span class="pill red">Sollecita ${r.map(g => esc(GROUP_LABELS[g].toLowerCase())).join(", ")}</span>` : ""}${typeof coachDrillMark === "function" ? coachDrillMark(d.id) : ""}</span></span>
         <span class="chev">▾</span></button>
         <div class="bd">${drillDetailHTML(d, info)}</div></div>`; }).join("") || `<div class="empty">Nessun drill disponibile con i filtri attuali.</div>`}`;
   v.innerHTML = `
+    ${typeof coachDrillSlot === "function" ? coachDrillSlot() : ""}
     ${S.mode === "coach" ? plannerCard() : ""}
     <div class="card tight"><h2>Libreria drill</h2>${sportChips(S.drillSport, "dr-sport", true)}<div style="margin-top:10px">${kqPhaseTabs()}</div></div>
     ${phase.id === "tecnica" ? tecnica : kqPhaseHTML(phase, phSport)}`;
@@ -816,6 +831,7 @@ function paintTimer() {
   }
 }
 function play() {
+  if (typeof bqGate === "function" && !bqGate("athlete")) return;
   if (TM.i >= TM.r.steps.length) loadRoutine(TM.r, false);
   if (PT.run) ptPause();
   TM.run = true; TM.last = performance.now(); beep(660);

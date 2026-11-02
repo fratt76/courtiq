@@ -66,6 +66,7 @@ function bqApplyChrome() {
   document.querySelectorAll("label[for='lang-splash']").forEach(lab => { lab.textContent = t("lang.label"); });
   set("#splash-login", "splash.login");
   set("#splash-register", "splash.register");
+  set("#splash-plans", "pricing.open");
   if (document.body.dataset.mode !== "coach") set("#tab-oggi-label", "nav.today");
   const tabs = { campo: "nav.field", video: "nav.video", salute: "nav.health", rete: "nav.network" };
   document.querySelectorAll(".tabs button").forEach(b => {

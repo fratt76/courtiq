@@ -64,6 +64,7 @@ function bqAuthHTML(mode) {
     <p class="small mut" id="au-msg"></p></div>`;
   const reg = mode === "register";
   return `<div class="card auth-card"><h2>${esc(t(reg ? "auth.registerTitle" : "auth.loginTitle"))}</h2>${lang}
+    ${reg ? `<p class="small" id="au-invite" hidden></p>` : ""}
     ${reg ? `<label class="lbl" for="au-nome">${esc(t("auth.nome"))}</label><input class="field" id="au-nome" autocomplete="given-name" required maxlength="80">
       <label class="lbl" for="au-cognome">${esc(t("auth.cognome"))}</label><input class="field" id="au-cognome" autocomplete="family-name" required maxlength="80">
       <label class="lbl" for="au-tel">${esc(t("auth.telefono"))}</label><input class="field" id="au-tel" type="tel" autocomplete="tel" required maxlength="40">` : ""}
@@ -115,8 +116,35 @@ function bqRenderAuth(mode) {
   const back = document.getElementById("au-back"); if (back) back.onclick = () => bqShowAuth("login");
   const go = document.getElementById("au-go");
   if (go) go.onclick = () => mode === "register" ? bqDoRegister() : bqDoLogin();
+  if (mode === "register") bqFillInvite();
   const send = document.getElementById("au-send"); if (send) send.onclick = () => bqDoForgot();
   const reset = document.getElementById("au-reset"); if (reset) reset.onclick = () => bqDoReset();
+}
+function bqInviteCode() {
+  try { return (sessionStorage.getItem("biokinetiq.invito") || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 40); }
+  catch (e) { return ""; }
+}
+function bqFillInvite() {
+  const code = bqInviteCode();
+  const el = document.getElementById("au-invite");
+  if (!code || !el) return;
+  bqApi("/invites/" + code).then(info => {
+    const node = document.getElementById("au-invite");
+    if (!node) return;
+    const price = typeof bqEuro === "function" ? bqEuro(info.priceCents) : "";
+    node.hidden = false;
+    node.textContent = t("invite.banner").replace("{coach}", info.coach || "").replace("{days}", String(info.trialDays || 30)).replace("{price}", price);
+  }).catch(() => {
+    const node = document.getElementById("au-invite");
+    if (node) { node.hidden = false; node.textContent = t("invite.invalid"); }
+  });
+}
+function bqInviteNote(info) {
+  if (!info) return "";
+  if (info.error === "taken") return t("invite.taken");
+  if (info.error) return t("invite.invalid");
+  const price = typeof bqEuro === "function" ? bqEuro(info.priceCents) : "";
+  return t("invite.linked").replace("{coach}", info.coach || "").replace("{days}", String(info.trialDays || 30)).replace("{price}", price);
 }
 function bqValEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim()); }
 async function bqDoRegister() {
@@ -128,21 +156,28 @@ async function bqDoRegister() {
   if (password.length < 8) return bqMsg(t("auth.shortPw"));
   if (password !== password2) return bqMsg(t("auth.mismatch"));
   try {
-    const data = await bqApi("/register", { nome, cognome, telefono, email, nascita, paese, citta, password });
+    const data = await bqApi("/register", { nome, cognome, telefono, email, nascita, paese, citta, password, invito: bqInviteCode() });
     let extra = "";
     if (data.devLink) extra = `<br><a class="btn sm" id="au-dev" href="${esc(data.devLink)}">${esc(t("auth.openVerify"))}</a>`;
-    bqMsg((data.emailSent ? t("auth.pending") : t("auth.pending") + " " + t("auth.unconfigured")), extra);
+    const note = data.invite ? " " + bqInviteNote(data.invite) : "";
+    if (data.invite && data.invite.coach) { try { sessionStorage.removeItem("biokinetiq.invito"); } catch (e) { } }
+    bqMsg((data.emailSent ? t("auth.pending") : t("auth.pending") + " " + t("auth.unconfigured")) + note, extra);
   } catch (e) { bqMsg(e.data && e.data.error === "email" ? t("auth.badEmail") : (e.data && e.data.message) || t("auth.required")); }
 }
 async function bqDoLogin() {
   const email = $("#au-email").value.trim(), password = $("#au-pw").value;
   if (!email || !password) return bqMsg(t("auth.required"));
   try {
-    const data = await bqApi("/login", { email, password });
+    const data = await bqApi("/login", { email, password, invito: bqInviteCode() });
     bqSetSession(data.token, data.user);
     bqHideAuth();
     await bqSyncLocal();
-    if (typeof toast === "function") toast(t("auth.hello") + " " + (data.user.nome || ""));
+    if (typeof bqLoadBilling === "function") await bqLoadBilling();
+    if (data.invite && data.invite.coach) { try { sessionStorage.removeItem("biokinetiq.invito"); } catch (e) { } }
+    if (typeof coachOnSession === "function") coachOnSession();
+    else if (typeof setMode === "function" && typeof S !== "undefined") setMode(S.mode);
+    const linked = data.invite && data.invite.coach ? " " + bqInviteNote(data.invite) : "";
+    if (typeof toast === "function") toast(t("auth.hello") + " " + (data.user.nome || "") + linked);
   } catch (e) { bqMsg(t("auth.badLogin")); }
 }
 async function bqDoForgot() {
@@ -188,6 +223,13 @@ async function bqConsumeLinks() {
     catch (e) { if (typeof toast === "function") toast(t("auth.badLogin")); }
     history.replaceState({}, "", location.pathname);
   } else if (q.get("reset")) bqShowAuth("reset");
+  else if (q.get("invito")) {
+    try { sessionStorage.setItem("biokinetiq.invito", q.get("invito").replace(/[^a-zA-Z0-9]/g, "").slice(0, 40)); } catch (e) { }
+    const url = new URL(location.href);
+    url.searchParams.delete("invito");
+    history.replaceState({}, "", url.pathname + url.search + url.hash);
+    bqShowAuth("register");
+  }
 }
 function bqBootAuth() {
   const login = document.getElementById("splash-login");
@@ -198,5 +240,11 @@ function bqBootAuth() {
   if (acc) acc.onclick = () => bqAccountSheet();
   bqPaintAccount();
   bqConsumeLinks();
-  if (bqToken()) bqSyncLocal();
+  if (bqToken()) bqSyncLocal().then(async () => {
+    if (typeof bqLoadBilling === "function") await bqLoadBilling();
+    if (typeof coachOnSession === "function") coachOnSession();
+    else if (typeof setMode === "function" && typeof S !== "undefined") setMode(S.mode);
+  });
+  const plans = document.getElementById("splash-plans");
+  if (plans) plans.onclick = () => { if (typeof bqShowPricing === "function") bqShowPricing("athlete"); };
 }
