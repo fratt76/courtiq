@@ -121,9 +121,84 @@ function devLinks() {
   if (process.env.ALLOW_DEV_LINKS === "0") return false;
   return !smtpOn() && process.env.NODE_ENV !== "production";
 }
-async function sendMail({ to, subject, text }) {
+function htmlEscape(v) {
+  return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function mailHeaders(tag) {
+  return {
+    "X-Mailin-Tag": tag,
+    "X-Mailin-Track": "0",
+    "X-Mailin-Track-Clicks": "0",
+    "X-Mailin-Track-Opens": "0"
+  };
+}
+function accountMail({ nome, link, kind }) {
+  const reset = kind === "reset";
+  const subject = reset ? "Reimposta la password BioKinetIQ" : "Conferma il tuo account BioKinetIQ";
+  const button = reset ? "Reimposta password" : "Conferma account";
+  const valid = reset ? "Il link è valido per 1 ora." : "Il link è valido per 24 ore.";
+  const ignore = reset
+    ? "Se non hai chiesto tu di reimpostare la password, ignora questo messaggio."
+    : "Se non hai creato tu questo account, ignora questo messaggio.";
+  const intro = reset
+    ? "Hai chiesto di scegliere una nuova password per BioKinetIQ."
+    : "Manca solo un passo per attivare il tuo account BioKinetIQ.";
+  const safeName = htmlEscape(nome || "");
+  const safeLink = htmlEscape(link);
+  const text = [
+    "Ciao " + (nome || "") + ",",
+    "",
+    intro,
+    "",
+    button + ": " + link,
+    "",
+    valid,
+    "",
+    "Se il pulsante non si apre, copia questo indirizzo nel browser:",
+    link,
+    "",
+    ignore,
+    "",
+    "BioKinetIQ · Longevità Atletica & Biomeccanica"
+  ].join("\n");
+  const html = `<!DOCTYPE html>
+<html lang="it">
+<body style="margin:0;padding:0;background:#0b1220;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1220;margin:0;padding:24px 0;">
+<tr><td align="center">
+<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#121f2c;border-radius:16px;overflow:hidden;">
+<tr><td align="center" style="background:#0a0b0d;padding:28px 24px 22px;">
+<img src="https://biokinetiq.eu/icons/biokinetiq-logo-600.png" alt="BioKinetIQ" width="280" style="display:block;width:280px;max-width:80%;height:auto;border:0;">
+</td></tr>
+<tr><td style="height:6px;line-height:6px;font-size:0;background:#A6F03C;background-image:linear-gradient(90deg,#A6F03C,#1EC8E6);">&nbsp;</td></tr>
+<tr><td style="padding:28px 28px 8px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#eef3ff;font-size:16px;line-height:1.5;">
+<p style="margin:0 0 12px;">Ciao ${safeName},</p>
+<p style="margin:0 0 22px;color:#c5d2e4;">${htmlEscape(intro)}</p>
+<p style="margin:0 0 22px;text-align:center;">
+<a href="${safeLink}" style="display:inline-block;background:#A6F03C;color:#0b1220;font-weight:800;text-decoration:none;padding:16px 32px;border-radius:999px;font-size:18px;line-height:1.2;">${button}</a>
+</p>
+<p style="margin:0 0 16px;">${htmlEscape(valid)}</p>
+<p style="margin:0 0 16px;color:#c5d2e4;">Se il pulsante non si apre, copia questo indirizzo nel browser:<br>
+<a href="${safeLink}" style="color:#1EC8E6;word-break:break-all;">${safeLink}</a></p>
+<p style="margin:0 0 8px;color:#96a8bf;">${htmlEscape(ignore)}</p>
+</td></tr>
+<tr><td style="padding:16px 28px 22px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#96a8bf;font-size:13px;line-height:1.45;border-top:1px solid #27394d;">
+BioKinetIQ · Longevità Atletica &amp; Biomeccanica<br>Messaggio automatico, non rispondere a questa email.
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+  return { subject, text, html, tag: reset ? "reimposta-password" : "conferma-account" };
+}
+async function sendMail({ to, subject, text, html, tag }) {
+  const headers = mailHeaders(tag || "biokinetiq");
+  const from = { name: "BioKinetIQ", address: process.env.SMTP_FROM || "noreply@biokinetiq.eu" };
   mkdirSync(outbox, { recursive: true });
-  writeFileSync(join(outbox, Date.now() + "-" + String(to).replace(/[^\w.@-]+/g, "_") + ".txt"), `To: ${to}\nSubject: ${subject}\n\n${text}\n`);
+  const headerLines = Object.entries(headers).map(([k, v]) => k + ": " + v).join("\n");
+  writeFileSync(join(outbox, Date.now() + "-" + String(to).replace(/[^\w.@-]+/g, "_") + ".txt"),
+    `From: BioKinetIQ <${from.address}>\nTo: ${to}\nSubject: ${subject}\n${headerLines}\n\n${text}\n\n--- html ---\n${html || ""}\n`);
   if (!smtpOn()) return { sent: false };
   const nm = await import("nodemailer");
   const port = Number(process.env.SMTP_PORT || 587);
@@ -133,7 +208,7 @@ async function sendMail({ to, subject, text }) {
     secure: port === 465,
     auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS || "" } : undefined
   });
-  await tx.sendMail({ from: process.env.SMTP_FROM, to, subject, text });
+  await tx.sendMail({ from, to, subject, text, html, headers });
   return { sent: true };
 }
 function authUser(req) {
@@ -498,7 +573,11 @@ async function handleApi(req, res, path) {
       VALUES (?,?,?,?,?,?,?,?,?,?,0,?,?,?)`).run(uid, nome, cognome, telefono, email, nascita, paese, citta, pw.salt, pw.hash, vt, now() + 86400000, now());
     const link = PUBLIC_URL + "/?verify=" + vt;
     let emailSent = false;
-    try { const m = await sendMail({ to: email, subject: "Conferma BioKinetIQ", text: "Conferma l'account: " + link }); emailSent = m.sent; }
+    try {
+      const mail = accountMail({ nome, link, kind: "verify" });
+      const m = await sendMail({ to: email, ...mail });
+      emailSent = m.sent;
+    }
     catch (e) { emailSent = false; }
     const out = { ok: true, emailSent };
     if (!emailSent) out.unconfigured = true;
@@ -540,7 +619,11 @@ async function handleApi(req, res, path) {
       const rt = token();
       db.prepare("UPDATE users SET reset_token = ?, reset_exp = ? WHERE id = ?").run(rt, now() + 3600000, row.id);
       link = PUBLIC_URL + "/?reset=" + rt;
-      try { const m = await sendMail({ to: email, subject: "Reimposta password BioKinetIQ", text: link }); emailSent = m.sent; } catch (e) { emailSent = false; }
+      try {
+        const mail = accountMail({ nome: row.nome, link, kind: "reset" });
+        const m = await sendMail({ to: email, ...mail });
+        emailSent = m.sent;
+      } catch (e) { emailSent = false; }
     }
     const out = { ok: true, emailSent };
     if (row && !emailSent) out.unconfigured = true;
@@ -585,6 +668,7 @@ function serveStatic(req, res, path) {
   res.end(readFileSync(file));
 }
 
+const HOST = process.env.HOST || "127.0.0.1";
 createServer(async (req, res) => {
   try {
     const url = new URL(req.url, "http://127.0.0.1");
@@ -594,6 +678,6 @@ createServer(async (req, res) => {
   } catch (e) {
     send(res, 500, { error: "server", message: "Errore interno" });
   }
-}).listen(PORT, () => {
-  console.log("BioKinetIQ API su " + PUBLIC_URL + " smtp=" + (smtpOn() ? "on" : "off"));
+}).listen(PORT, HOST, () => {
+  console.log("BioKinetIQ API su " + PUBLIC_URL + " bind=" + HOST + " smtp=" + (smtpOn() ? "on" : "off"));
 });
