@@ -227,7 +227,7 @@ function kqDrillCardsHTML(list, info) {
       : `<div class="dc-ic" aria-hidden="true">${sportIcon(d.sport, 44)}</div>`;
     return `<article class="dcard ${r.length ? "warn" : ""}" role="listitem" tabindex="0" data-id="${d.id}" aria-label="${esc(d.title)}, tocca per i dettagli">
       ${media}<h3>${esc(d.title)}</h3>
-      <div class="meta"><span class="pill">${esc(SPORTS[d.sport])}</span><span class="pill">${esc(d.time)}</span><span class="pill">${esc(d.level)}</span></div>
+      <div class="meta"><span class="pill">${esc(SPORTS[d.sport])}</span><span class="pill">${esc(d.time)}</span><span class="pill">${esc(d.level)}</span>${typeof coachDrillMark === "function" ? coachDrillMark(d.id) : ""}</div>
       <div class="meta">${d.zones.map(z => `<span class="pill ${info.riskyGroups.includes(z) ? "red" : "acc"}">${esc(KQ_ZONE_BADGE[z] || GROUP_LABELS[z] || z)}</span>`).join("")}</div>
       ${r.length ? `<p class="small z-red" style="margin:6px 0 0">Sollecita una zona con fastidio.</p>` : ""}
       <p class="small mut dc-hint">Tocca la scheda per obiettivo e passi</p>
