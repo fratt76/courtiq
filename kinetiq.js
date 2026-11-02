@@ -338,6 +338,7 @@ function kqRenderSportBar() {
     if (b.left < a.left + 4 || b.right > a.right - 4) sc.scrollLeft += b.left - a.left - 12;
   }
 }
+function kqSportPreset(sport) { return (SPORT_BIO[sport] || {}).preset || "elbow_low"; }
 function kqSetSport(id) {
   if (!SPORTS[id]) return;
   S.sport = id;
@@ -346,6 +347,9 @@ function kqSetSport(id) {
   if (typeof VS !== "undefined") { VS.sport = id; VS.shot = null; }
   if (isCourt(id) || TACTICAL_SPORTS.includes(id)) S.boardSport = id;
   if (S.prev) S.prev.sport = id;
+  /* Lo Studio non deve tenere la figura dello sport precedente: altrimenti Kettlebell resta sulla posa di un'altra disciplina. */
+  KQ.studio = null;
+  KQ.wantPreset = kqSportPreset(id);
   save();
   render();
 }
@@ -810,7 +814,7 @@ function kqPaintFigure(el, pose, preset, mode) {
 function kqPreset(id) { return STUDIO.find(p => p.id === id) || STUDIO[0]; }
 function kqOpenStudio(id) { KQ.studio = null; KQ.wantPreset = id; go("studio"); }
 function kqEnsureStudio() {
-  const id = (KQ.studio && KQ.studio.id) || KQ.wantPreset || (SPORT_BIO[S.sport] || {}).preset || "kb_hyper";
+  const id = KQ.wantPreset || (KQ.studio && KQ.studio.id) || kqSportPreset(S.sport);
   if (!KQ.studio || KQ.studio.id !== id) {
     const p = kqPreset(id);
     const nodes = {}; p.nodes.forEach(n => nodes[n.id] = { x: n.x, y: n.y });
