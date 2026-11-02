@@ -1,6 +1,11 @@
 /* BioKinetIQ - lingue ufficiali UE. L'italiano è la sorgente (i18n/it.json); le altre lingue sono file separati. */
 "use strict";
 
+function bqEsc(v) {
+  return String(v ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+if (typeof esc !== "function") var esc = bqEsc;
+
 const BQ_LANGS = ["bg", "cs", "da", "de", "el", "en", "es", "et", "fi", "fr", "ga", "hr", "hu", "it", "lt", "lv", "mt", "nl", "pl", "pt", "ro", "sk", "sl", "sv"];
 const BQ_LANG_KEY = "biokinetiq.lang";
 const BQ_EU = ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"];
@@ -83,3 +88,11 @@ function bqBootI18n() {
   }
   return bqLoadLang(bqLang());
 }
+function bqFillEmptyLangSelects() {
+  document.querySelectorAll("[data-lang-select]").forEach(sel => {
+    if (sel.options && sel.options.length) return;
+    sel.innerHTML = bqLangOptions();
+  });
+  bqBindLang(document);
+}
+document.addEventListener("DOMContentLoaded", bqFillEmptyLangSelects);
