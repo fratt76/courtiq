@@ -198,5 +198,7 @@ function bqBootAuth() {
   if (acc) acc.onclick = () => bqAccountSheet();
   bqPaintAccount();
   bqConsumeLinks();
-  if (bqToken()) bqSyncLocal();
+  if (bqToken()) bqSyncLocal().then(() => { if (typeof bqLoadBilling === "function") bqLoadBilling(); });
+  const plans = document.getElementById("splash-plans");
+  if (plans) plans.onclick = () => { if (typeof bqShowPricing === "function") bqShowPricing("athlete"); };
 }

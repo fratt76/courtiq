@@ -162,6 +162,10 @@ function render(tab = TAB) {
   if (tab === "tecnica" && S.sport === "kettlebell") kqStartKbAnim();
 }
 function setMode(m) {
+  if (m === "coach" && typeof bqPlanOk === "function" && bqUser() && !bqPlanOk("coach")) {
+    if (typeof bqShowPricing === "function") bqShowPricing("coach");
+    m = "player";
+  }
   S.mode = m; save();
   $$(".mode button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
   $("#tab-oggi-label").textContent = m === "coach" ? "Atleti" : (typeof t === "function" ? t("nav.today") : "Oggi");
@@ -816,6 +820,7 @@ function paintTimer() {
   }
 }
 function play() {
+  if (typeof bqGate === "function" && !bqGate("athlete")) return;
   if (TM.i >= TM.r.steps.length) loadRoutine(TM.r, false);
   if (PT.run) ptPause();
   TM.run = true; TM.last = performance.now(); beep(660);

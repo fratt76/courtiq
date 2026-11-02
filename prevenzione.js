@@ -172,6 +172,7 @@ function ptBuild(items, kind, title, meta) {
 }
 function ptPlay() {
   if (!PT.list) return;
+  if (typeof bqGate === "function" && !bqGate("athlete")) return;
   if (typeof TM !== "undefined" && TM.run) pause();
   if (PT.done) { PT.i = 0; PT.rem = PT.list[0].s; PT.done = false; }
   PT.run = true; PT.last = performance.now(); beep(660); wakeLock(true);

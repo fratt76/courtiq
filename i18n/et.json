@@ -45,5 +45,22 @@
   "auth.sendReset": "Saada link",
   "auth.account": "Sinu konto",
   "auth.hello": "Tere",
-  "auth.openVerify": "Ava kinnituslink (ainult arendus)"
+  "auth.openVerify": "Ava kinnituslink (ainult arendus)",
+  "pricing.open": "Plans",
+  "pricing.title": "Choose a plan",
+  "pricing.athlete": "BioKinetIQ Athlete",
+  "pricing.coach": "BioKinetIQ Coach",
+  "pricing.altAthlete": "Also called: BioKinetIQ Atleta",
+  "pricing.altCoach": "Also called: BioKinetIQ Allenatore",
+  "pricing.trial": "1 month free, then the price you pick. No real charge in this version.",
+  "pricing.perMonth": "per month",
+  "pricing.perYear": "per year (11 months: one month off)",
+  "pricing.monthBtn": "Monthly trial",
+  "pricing.yearBtn": "Yearly trial",
+  "pricing.back": "Close",
+  "pricing.needPlan": "Guided sessions need an active plan or a trial.",
+  "pricing.needCoach": "Coach mode is part of BioKinetIQ Coach.",
+  "pricing.local": "Stripe is not configured: the trial stays on the server, with no card and no charge.",
+  "pricing.stripe": "Stripe is in test mode: a test card is used, not a real payment.",
+  "pricing.started": "Trial started. No charge."
 }

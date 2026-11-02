@@ -46,6 +46,11 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE TABLE IF NOT EXISTS user_data (
   user_id TEXT PRIMARY KEY, blob TEXT NOT NULL, updated INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id TEXT PRIMARY KEY, user_id TEXT NOT NULL, plan TEXT NOT NULL,
+  interval TEXT NOT NULL, status TEXT NOT NULL, trial_ends INTEGER,
+  stripe_session TEXT, created INTEGER NOT NULL
 );`);
 
 const EU = new Set(["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"]);
@@ -115,6 +120,91 @@ function authUser(req) {
 }
 
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".webp": "image/webp" };
+const PLANS = {
+  athlete: { name: "BioKinetIQ Athlete", month: 799, year: 8789 },
+  coach: { name: "BioKinetIQ Coach", month: 1499, year: 16489 }
+};
+const TRIAL_MS = 30 * 86400000;
+function stripeKey() {
+  const key = process.env.STRIPE_SECRET_KEY || "";
+  if (!key) return { mode: "local" };
+  if (key.startsWith("sk_live_")) return { mode: "reject" };
+  if (!key.startsWith("sk_test_")) return { mode: "reject" };
+  return { mode: "test", key };
+}
+function priceId(plan, interval) {
+  const map = {
+    "athlete:month": process.env.STRIPE_PRICE_ATHLETE_MONTH,
+    "athlete:year": process.env.STRIPE_PRICE_ATHLETE_YEAR,
+    "coach:month": process.env.STRIPE_PRICE_COACH_MONTH,
+    "coach:year": process.env.STRIPE_PRICE_COACH_YEAR
+  };
+  return map[plan + ":" + interval] || "";
+}
+function subPublic(row) {
+  if (!row) return null;
+  const trial = row.status === "trialing" && row.trial_ends > now();
+  const active = row.status === "active" || trial;
+  return { plan: row.plan, interval: row.interval, status: trial ? "trialing" : row.status, trialEnds: row.trial_ends, active, name: (PLANS[row.plan] || {}).name || row.plan };
+}
+function currentSub(userId) {
+  return db.prepare("SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created DESC LIMIT 1").get(userId);
+}
+async function handleBilling(req, res, path, body, me) {
+  if (req.method === "GET" && path === "/api/billing/config") {
+    const s = stripeKey();
+    return send(res, 200, { stripeTest: s.mode === "test", localTrial: s.mode !== "test", plans: PLANS });
+  }
+  if (!me) return send(res, 401, { error: "auth" });
+  if (req.method === "GET" && path === "/api/billing") return send(res, 200, { subscription: subPublic(currentSub(me.id)) });
+  if (req.method === "POST" && path === "/api/billing/start") {
+    const plan = body.plan === "coach" ? "coach" : body.plan === "athlete" ? "athlete" : "";
+    const interval = body.interval === "year" ? "year" : body.interval === "month" ? "month" : "";
+    if (!plan || !interval) return send(res, 400, { error: "plan" });
+    const s = stripeKey();
+    if (s.mode === "reject") return send(res, 400, { error: "live_key", message: "Solo chiavi Stripe di test (sk_test_)." });
+    if (s.mode === "test") {
+      const price = priceId(plan, interval);
+      if (!price) return send(res, 400, { error: "price", message: "Manca STRIPE_PRICE_* per questo piano. Nessun prezzo live viene creato." });
+      const params = new URLSearchParams();
+      params.set("mode", "subscription");
+      params.set("success_url", PUBLIC_URL + "/?billing=ok&session_id={CHECKOUT_SESSION_ID}");
+      params.set("cancel_url", PUBLIC_URL + "/?billing=cancel");
+      params.set("client_reference_id", me.id);
+      params.set("customer_email", me.email);
+      params.set("line_items[0][price]", price);
+      params.set("line_items[0][quantity]", "1");
+      params.set("subscription_data[trial_period_days]", "30");
+      const r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + s.key, "Content-Type": "application/x-www-form-urlencoded" },
+        body: params
+      });
+      const j = await r.json();
+      if (!r.ok) return send(res, 502, { error: "stripe", message: "Checkout di test non creato" });
+      return send(res, 200, { url: j.url, test: true });
+    }
+    const row = { id: id(), user_id: me.id, plan, interval, status: "trialing", trial_ends: now() + TRIAL_MS, created: now() };
+    db.prepare("INSERT INTO subscriptions (id,user_id,plan,interval,status,trial_ends,stripe_session,created) VALUES (?,?,?,?,?,?,NULL,?)")
+      .run(row.id, row.user_id, row.plan, row.interval, row.status, row.trial_ends, row.created);
+    return send(res, 200, { subscription: subPublic(row), local: true, charged: false });
+  }
+  if (req.method === "POST" && path === "/api/billing/confirm") {
+    const s = stripeKey();
+    if (s.mode !== "test") return send(res, 400, { error: "stripe" });
+    const sid = String(body.sessionId || "");
+    const r = await fetch("https://api.stripe.com/v1/checkout/sessions/" + encodeURIComponent(sid), { headers: { Authorization: "Bearer " + s.key } });
+    const j = await r.json();
+    if (!r.ok || j.client_reference_id !== me.id) return send(res, 400, { error: "session" });
+    const plan = body.plan === "coach" ? "coach" : "athlete";
+    const interval = body.interval === "year" ? "year" : "month";
+    const row = { id: id(), trial_ends: now() + TRIAL_MS };
+    db.prepare("INSERT INTO subscriptions (id,user_id,plan,interval,status,trial_ends,stripe_session,created) VALUES (?,?,?,?, 'trialing', ?, ?, ?)")
+      .run(row.id, me.id, plan, interval, row.trial_ends, sid, now());
+    return send(res, 200, { subscription: subPublic(currentSub(me.id)), charged: false });
+  }
+  return send(res, 404, { error: "notfound" });
+}
 
 async function handleApi(req, res, path) {
   const body = req.method === "POST" ? await readBody(req) : {};
@@ -199,6 +289,7 @@ async function handleApi(req, res, path) {
     return send(res, 200, { ok: true });
   }
   if (req.method === "GET" && path === "/api/health") return send(res, 200, { ok: true, smtp: smtpOn() });
+  if (path.startsWith("/api/billing")) return handleBilling(req, res, path, body, me);
   return send(res, 404, { error: "notfound" });
 }
 
