@@ -2,20 +2,33 @@
 "use strict";
 
 let BQ_SUB = null;
-let BQ_BILL = { stripeTest: false, localTrial: true };
+let BQ_BILLING_READY = false;
+let BQ_BILL = { stripeTest: false, localTrial: true, plans: null, share: { enabled: false } };
 
 const BQ_PRICES = {
   athlete: { month: "7,99 €", year: "87,89 €" },
   coach: { month: "14,99 €", year: "164,89 €" }
 };
 
+function bqEuro(cents) {
+  const n = Number(cents) / 100;
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+}
+function bqPriceLabel(plan, interval) {
+  const p = BQ_BILL.plans && BQ_BILL.plans[plan];
+  if (p && p[interval] != null) return bqEuro(p[interval]);
+  return BQ_PRICES[plan][interval];
+}
 async function bqLoadBilling() {
-  if (!bqToken()) { BQ_SUB = null; return; }
+  try { BQ_BILL = Object.assign({ plans: null, share: { enabled: false } }, await bqApi("/billing/config")); }
+  catch (e) { }
+  if (!bqToken()) { BQ_SUB = null; BQ_BILLING_READY = true; return; }
   try {
-    BQ_BILL = await bqApi("/billing/config");
     const data = await bqApi("/billing");
     BQ_SUB = data.subscription || null;
   } catch (e) { BQ_SUB = null; }
+  BQ_BILLING_READY = true;
 }
 function bqPlanOk(need) {
   if (!bqUser()) return true;
@@ -23,7 +36,8 @@ function bqPlanOk(need) {
   if (need === "coach" && BQ_SUB.plan !== "coach") return false;
   return true;
 }
-function bqShowPricing(reason) {
+async function bqShowPricing(reason) {
+  if (!BQ_BILL.plans) { try { await bqLoadBilling(); } catch (e) { } }
   let host = document.getElementById("pricing-screen");
   if (!host) {
     host = document.createElement("div");
@@ -33,12 +47,17 @@ function bqShowPricing(reason) {
   }
   host.hidden = false;
   const note = BQ_BILL.stripeTest ? t("pricing.stripe") : t("pricing.local");
-  const card = (plan, alt) => `<article class="card"><h3>${esc(t(plan === "athlete" ? "pricing.athlete" : "pricing.coach"))}</h3>
+  const card = (plan, alt) => {
+    const days = (BQ_BILL.plans && BQ_BILL.plans[plan] && BQ_BILL.plans[plan].trialDays) || 30;
+    const trial = t("pricing.trialN").replace("{days}", String(days));
+    const trialText = trial === "pricing.trialN" ? t("pricing.trial") : trial;
+    return `<article class="card"><h3>${esc(t(plan === "athlete" ? "pricing.athlete" : "pricing.coach"))}</h3>
     <p class="small mut">${esc(t(alt))}</p>
-    <p>${esc(t("pricing.trial"))}</p>
-    <p><b>${BQ_PRICES[plan].month}</b> ${esc(t("pricing.perMonth"))}<br><b>${BQ_PRICES[plan].year}</b> ${esc(t("pricing.perYear"))}</p>
+    <p>${esc(trialText)}</p>
+    <p><b>${esc(bqPriceLabel(plan, "month"))}</b> ${esc(t("pricing.perMonth"))}<br><b>${esc(bqPriceLabel(plan, "year"))}</b> ${esc(t("pricing.perYear"))}</p>
     <button type="button" class="btn pri block" data-plan="${plan}" data-interval="month">${esc(t("pricing.monthBtn"))}</button>
     <button type="button" class="btn block" data-plan="${plan}" data-interval="year">${esc(t("pricing.yearBtn"))}</button></article>`;
+  };
   host.innerHTML = `<div class="auth-wrap"><div class="card"><h2>${esc(t("pricing.title"))}</h2>
     <p class="small">${esc(t(reason === "coach" ? "pricing.needCoach" : "pricing.needPlan"))}</p>
     <p class="small mut">${esc(note)}</p></div>

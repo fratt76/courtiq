@@ -7,10 +7,11 @@ import { fileURLToPath } from "node:url";
 import { randomBytes, scrypt as scryptCb, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { DatabaseSync } from "node:sqlite";
+import QRCode from "qrcode";
 
 const scrypt = promisify(scryptCb);
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const dataDir = join(dirname(fileURLToPath(import.meta.url)), "data");
+const dataDir = process.env.DATA_DIR || join(dirname(fileURLToPath(import.meta.url)), "data");
 const outbox = join(dirname(fileURLToPath(import.meta.url)), "outbox");
 mkdirSync(dataDir, { recursive: true });
 
@@ -51,7 +52,32 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   id TEXT PRIMARY KEY, user_id TEXT NOT NULL, plan TEXT NOT NULL,
   interval TEXT NOT NULL, status TEXT NOT NULL, trial_ends INTEGER,
   stripe_session TEXT, created INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS invites (
+  code TEXT PRIMARY KEY, coach_id TEXT NOT NULL, created INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS coach_links (
+  athlete_id TEXT PRIMARY KEY, coach_id TEXT NOT NULL, invite_code TEXT, created INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS athlete_status (
+  athlete_id TEXT PRIMARY KEY, sport TEXT, light TEXT NOT NULL, label TEXT NOT NULL,
+  detail TEXT, load_zone TEXT, ratio REAL, pains_json TEXT, updated INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS drill_assignments (
+  id TEXT PRIMARY KEY, coach_id TEXT NOT NULL, athlete_id TEXT NOT NULL,
+  drills_json TEXT NOT NULL, created INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS share_ledger (
+  id TEXT PRIMARY KEY, coach_id TEXT NOT NULL, athlete_id TEXT NOT NULL,
+  period TEXT NOT NULL, cents INTEGER NOT NULL, status TEXT NOT NULL, created INTEGER NOT NULL,
+  UNIQUE (coach_id, athlete_id, period)
 );`);
+function addCol(table, col, def) {
+  const cols = db.prepare("PRAGMA table_info(" + table + ")").all();
+  if (!cols.some(c => c.name === col)) db.exec("ALTER TABLE " + table + " ADD COLUMN " + col + " " + def);
+}
+addCol("subscriptions", "price_cents", "INTEGER");
+addCol("subscriptions", "source", "TEXT");
 
 const EU = new Set(["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"]);
 const emailOk = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || "").trim());
@@ -120,11 +146,16 @@ function authUser(req) {
 }
 
 const MIME = { ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png", ".ico": "image/x-icon", ".webp": "image/webp" };
+function envInt(name, fallback, min, max) {
+  const n = Number(process.env[name]);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(n)));
+}
+/* 799 = 7,99 €, prezzo Athlete deciso. */
 const PLANS = {
-  athlete: { name: "BioKinetIQ Athlete", month: 799, year: 8789 },
-  coach: { name: "BioKinetIQ Coach", month: 1499, year: 16489 }
+  athlete: { name: "BioKinetIQ Athlete", month: envInt("ATHLETE_MONTH_CENTS", 799, 50, 100000), year: envInt("ATHLETE_YEAR_CENTS", 8789, 50, 200000), trialDays: envInt("ATHLETE_TRIAL_DAYS", 30, 1, 365) },
+  coach: { name: "BioKinetIQ Coach", month: envInt("COACH_MONTH_CENTS", 1499, 50, 100000), year: envInt("COACH_YEAR_CENTS", 16489, 50, 200000), trialDays: envInt("COACH_TRIAL_DAYS", 30, 1, 365) }
 };
-const TRIAL_MS = 30 * 86400000;
 function stripeKey() {
   const key = process.env.STRIPE_SECRET_KEY || "";
   if (!key) return { mode: "local" };
@@ -145,7 +176,149 @@ function subPublic(row) {
   if (!row) return null;
   const trial = row.status === "trialing" && row.trial_ends > now();
   const active = row.status === "active" || trial;
-  return { plan: row.plan, interval: row.interval, status: trial ? "trialing" : row.status, trialEnds: row.trial_ends, active, name: (PLANS[row.plan] || {}).name || row.plan };
+  const price = row.price_cents || (PLANS[row.plan] && PLANS[row.plan][row.interval]) || null;
+  return {
+    plan: row.plan, interval: row.interval, status: trial ? "trialing" : row.status,
+    trialEnds: row.trial_ends, active, priceCents: price, source: row.source || "",
+    name: (PLANS[row.plan] || {}).name || row.plan
+  };
+}
+function shareConfig() {
+  return { enabled: process.env.REVENUE_SHARE === "1", cents: envInt("REVENUE_SHARE_CENTS", 150, 0, 100000), method: "ledger" };
+}
+function testTools() {
+  if (stripeKey().mode === "reject") return false;
+  if (process.env.NODE_ENV === "production" && process.env.ALLOW_DEV_LINKS !== "1") return false;
+  return true;
+}
+function periodKey(ts = now()) {
+  const d = new Date(ts);
+  return d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0");
+}
+function trafficFrom(pains, loadZone, persistent) {
+  const list = Array.isArray(pains) ? pains : [];
+  const severe = list.some(p => Number(p.sev) >= 7 || p.type === "Fitta");
+  const mild = list.some(p => Number(p.sev) >= 1 && Number(p.sev) < 7 && p.type !== "Fitta");
+  const bits = [];
+  if (loadZone === "red") bits.push("carico sopra la soglia");
+  if (persistent) bits.push("fastidio che torna");
+  if (severe) bits.push("fastidio forte o a fitta");
+  if (loadZone === "red" || persistent || severe) {
+    return { light: "red", label: "Rosso · sovraccarico da verificare prima della lezione", detail: bits.join(" · ") };
+  }
+  if (mild) {
+    return { light: "yellow", label: "Giallo · fastidio lieve registrato", detail: "fastidio lieve in Salute" };
+  }
+  if (loadZone === "yellow") {
+    return { light: "yellow", label: "Giallo · carico in aumento", detail: "carico in aumento, senza fastidio segnato" };
+  }
+  return { light: "green", label: "Verde · nessun fastidio", detail: "" };
+}
+function coachName(row) {
+  if (!row) return "";
+  return (row.nome + " " + row.cognome).trim();
+}
+function requireCoach(me) {
+  if (!me) return { code: 401, error: "auth" };
+  const pub = subPublic(currentSub(me.id));
+  if (!pub || !pub.active || pub.plan !== "coach") return { code: 402, error: "coach_plan", message: "Serve il piano Coach in prova o attivo." };
+  return null;
+}
+function ensureAthleteTrial(userId, source) {
+  const cur = currentSub(userId);
+  if (cur) return subPublic(cur);
+  const trialEnds = now() + PLANS.athlete.trialDays * 86400000;
+  const sid = id();
+  db.prepare("INSERT INTO subscriptions (id,user_id,plan,interval,status,trial_ends,stripe_session,created,price_cents,source) VALUES (?,?,?,?,?,?,NULL,?,?,?)")
+    .run(sid, userId, "athlete", "month", "trialing", trialEnds, now(), PLANS.athlete.month, source || "invite");
+  return subPublic(currentSub(userId));
+}
+function attachInvite(userId, inviteRow) {
+  if (!inviteRow) return { error: "invite" };
+  if (inviteRow.coach_id === userId) return { error: "self", message: "Non puoi usare il tuo invito." };
+  const existing = db.prepare("SELECT * FROM coach_links WHERE athlete_id = ?").get(userId);
+  if (existing && existing.coach_id !== inviteRow.coach_id) return { error: "taken", message: "Sei già collegato a un altro coach." };
+  if (!existing) {
+    db.prepare("INSERT INTO coach_links (athlete_id, coach_id, invite_code, created) VALUES (?,?,?,?)")
+      .run(userId, inviteRow.coach_id, inviteRow.code, now());
+  }
+  const trial = ensureAthleteTrial(userId, "invite");
+  const coach = db.prepare("SELECT nome, cognome FROM users WHERE id = ?").get(inviteRow.coach_id);
+  return { coach: coachName(coach), trialDays: PLANS.athlete.trialDays, priceCents: PLANS.athlete.month, trial };
+}
+function invitePublic(code) {
+  const row = db.prepare("SELECT * FROM invites WHERE code = ?").get(code);
+  if (!row) return null;
+  const coach = db.prepare("SELECT nome, cognome FROM users WHERE id = ?").get(row.coach_id);
+  return { code: row.code, coach: coachName(coach), trialDays: PLANS.athlete.trialDays, priceCents: PLANS.athlete.month };
+}
+function athletePaying(userId) {
+  const sub = currentSub(userId);
+  return !!(sub && sub.plan === "athlete" && sub.status === "active");
+}
+function syncShare(coachId) {
+  const cfg = shareConfig();
+  if (!cfg.enabled) return { enabled: false, method: "ledger" };
+  const period = periodKey();
+  const links = db.prepare("SELECT athlete_id FROM coach_links WHERE coach_id = ?").all(coachId);
+  for (const link of links) {
+    if (!athletePaying(link.athlete_id)) continue;
+    db.prepare("INSERT INTO share_ledger (id,coach_id,athlete_id,period,cents,status,created) VALUES (?,?,?,?,?,?,?) ON CONFLICT(coach_id, athlete_id, period) DO NOTHING")
+      .run(id(), coachId, link.athlete_id, period, cfg.cents, "accrued", now());
+  }
+  const rows = db.prepare("SELECT * FROM share_ledger WHERE coach_id = ? AND period = ?").all(coachId, period);
+  const earnings = rows.reduce((s, r) => s + r.cents, 0);
+  const coachMonth = PLANS.coach.month;
+  const gap = Math.max(0, coachMonth - earnings);
+  const need = cfg.cents > 0 ? Math.ceil(gap / cfg.cents) : 0;
+  return {
+    enabled: true, method: "ledger", period, centsEach: cfg.cents,
+    activePaying: rows.length, earningsCents: earnings, coachMonthCents: coachMonth,
+    covered: earnings >= coachMonth, gapCents: gap, athletesToCover: need,
+    note: "Registro manuale: le quote restano segnate qui. Non parte alcun trasferimento Stripe Connect e non esce denaro."
+  };
+}
+function rosterFor(coachId) {
+  const links = db.prepare("SELECT * FROM coach_links WHERE coach_id = ? ORDER BY created DESC").all(coachId);
+  const athletes = links.map(link => {
+    const u = db.prepare("SELECT nome, cognome FROM users WHERE id = ?").get(link.athlete_id);
+    const st = db.prepare("SELECT * FROM athlete_status WHERE athlete_id = ?").get(link.athlete_id);
+    const sub = subPublic(currentSub(link.athlete_id));
+    let pains = [];
+    try { pains = st && st.pains_json ? JSON.parse(st.pains_json) : []; } catch (e) { pains = []; }
+    const assigns = db.prepare("SELECT id, drills_json, created FROM drill_assignments WHERE athlete_id = ? AND coach_id = ? ORDER BY created DESC LIMIT 3").all(link.athlete_id, coachId);
+    return {
+      id: link.athlete_id,
+      name: coachName(u),
+      sport: (st && st.sport) || "",
+      light: (st && st.light) || "wait",
+      label: (st && st.label) || "In attesa dei dati di Salute",
+      detail: (st && st.detail) || "",
+      loadZone: (st && st.load_zone) || "",
+      ratio: st ? st.ratio : null,
+      pains,
+      updated: st ? st.updated : null,
+      paying: athletePaying(link.athlete_id),
+      subscription: sub,
+      assignments: assigns.map(a => ({ id: a.id, created: a.created, drills: JSON.parse(a.drills_json) }))
+    };
+  });
+  return athletes;
+}
+function markAthletePaying(userId) {
+  if (!testTools()) return null;
+  let sub = currentSub(userId);
+  if (sub && sub.plan !== "athlete") return subPublic(sub);
+  if (!sub) {
+    ensureAthleteTrial(userId, "test");
+    sub = currentSub(userId);
+  }
+  db.prepare("UPDATE subscriptions SET status = 'active', price_cents = ?, trial_ends = ? WHERE id = ?")
+    .run(PLANS.athlete.month, now() - 1000, sub.id);
+  return subPublic(currentSub(userId));
+}
+async function inviteSvg(url) {
+  return QRCode.toString(url, { type: "svg", margin: 1, width: 220, color: { dark: "#0b1220", light: "#ffffff" } });
 }
 function currentSub(userId) {
   return db.prepare("SELECT * FROM subscriptions WHERE user_id = ? ORDER BY created DESC LIMIT 1").get(userId);
@@ -153,7 +326,8 @@ function currentSub(userId) {
 async function handleBilling(req, res, path, body, me) {
   if (req.method === "GET" && path === "/api/billing/config") {
     const s = stripeKey();
-    return send(res, 200, { stripeTest: s.mode === "test", localTrial: s.mode !== "test", plans: PLANS });
+    const share = shareConfig();
+    return send(res, 200, { stripeTest: s.mode === "test", localTrial: s.mode !== "test", plans: PLANS, share, testTools: testTools() });
   }
   if (!me) return send(res, 401, { error: "auth" });
   if (req.method === "GET" && path === "/api/billing") return send(res, 200, { subscription: subPublic(currentSub(me.id)) });
@@ -174,7 +348,7 @@ async function handleBilling(req, res, path, body, me) {
       params.set("customer_email", me.email);
       params.set("line_items[0][price]", price);
       params.set("line_items[0][quantity]", "1");
-      params.set("subscription_data[trial_period_days]", "30");
+      params.set("subscription_data[trial_period_days]", String(PLANS[plan].trialDays));
       const r = await fetch("https://api.stripe.com/v1/checkout/sessions", {
         method: "POST",
         headers: { Authorization: "Bearer " + s.key, "Content-Type": "application/x-www-form-urlencoded" },
@@ -184,9 +358,9 @@ async function handleBilling(req, res, path, body, me) {
       if (!r.ok) return send(res, 502, { error: "stripe", message: "Checkout di test non creato" });
       return send(res, 200, { url: j.url, test: true });
     }
-    const row = { id: id(), user_id: me.id, plan, interval, status: "trialing", trial_ends: now() + TRIAL_MS, created: now() };
-    db.prepare("INSERT INTO subscriptions (id,user_id,plan,interval,status,trial_ends,stripe_session,created) VALUES (?,?,?,?,?,?,NULL,?)")
-      .run(row.id, row.user_id, row.plan, row.interval, row.status, row.trial_ends, row.created);
+    const row = { id: id(), user_id: me.id, plan, interval, status: "trialing", trial_ends: now() + PLANS[plan].trialDays * 86400000, created: now(), price_cents: PLANS[plan][interval] };
+    db.prepare("INSERT INTO subscriptions (id,user_id,plan,interval,status,trial_ends,stripe_session,created,price_cents,source) VALUES (?,?,?,?,?,?,NULL,?,?,?)")
+      .run(row.id, row.user_id, row.plan, row.interval, row.status, row.trial_ends, row.created, row.price_cents, "local");
     return send(res, 200, { subscription: subPublic(row), local: true, charged: false });
   }
   if (req.method === "POST" && path === "/api/billing/confirm") {
@@ -198,21 +372,121 @@ async function handleBilling(req, res, path, body, me) {
     if (!r.ok || j.client_reference_id !== me.id) return send(res, 400, { error: "session" });
     const plan = body.plan === "coach" ? "coach" : "athlete";
     const interval = body.interval === "year" ? "year" : "month";
-    const row = { id: id(), trial_ends: now() + TRIAL_MS };
-    db.prepare("INSERT INTO subscriptions (id,user_id,plan,interval,status,trial_ends,stripe_session,created) VALUES (?,?,?,?, 'trialing', ?, ?, ?)")
-      .run(row.id, me.id, plan, interval, row.trial_ends, sid, now());
+    const row = { id: id(), trial_ends: now() + PLANS[plan].trialDays * 86400000 };
+    db.prepare("INSERT INTO subscriptions (id,user_id,plan,interval,status,trial_ends,stripe_session,created,price_cents,source) VALUES (?,?,?,?, 'trialing', ?, ?, ?, ?, ?)")
+      .run(row.id, me.id, plan, interval, row.trial_ends, sid, now(), PLANS[plan][interval], "stripe_test");
     return send(res, 200, { subscription: subPublic(currentSub(me.id)), charged: false });
+  }
+  if (req.method === "POST" && path === "/api/billing/test-pay") {
+    if (!me) return send(res, 401, { error: "auth" });
+    if (!testTools()) return send(res, 403, { error: "test" });
+    const sub = markAthletePaying(me.id);
+    return send(res, 200, { subscription: sub, charged: false, test: true });
+  }
+  return send(res, 404, { error: "notfound" });
+}
+
+async function handleCoach(req, res, path, body, me) {
+  if (req.method === "GET" && path === "/api/me/coach") {
+    if (!me) return send(res, 401, { error: "auth" });
+    const link = db.prepare("SELECT * FROM coach_links WHERE athlete_id = ?").get(me.id);
+    if (!link) return send(res, 200, { coach: null });
+    const coach = db.prepare("SELECT nome, cognome FROM users WHERE id = ?").get(link.coach_id);
+    return send(res, 200, { coach: coachName(coach), coachId: link.coach_id });
+  }
+  if (req.method === "GET" && path === "/api/me/drills") {
+    if (!me) return send(res, 401, { error: "auth" });
+    const rows = db.prepare("SELECT a.id, a.drills_json, a.created, a.coach_id, u.nome, u.cognome FROM drill_assignments a JOIN users u ON u.id = a.coach_id WHERE a.athlete_id = ? ORDER BY a.created DESC LIMIT 8").all(me.id);
+    return send(res, 200, { assignments: rows.map(r => ({ id: r.id, created: r.created, coach: coachName(r), drills: JSON.parse(r.drills_json) })) });
+  }
+  if (req.method === "POST" && path === "/api/coach/status") {
+    if (!me) return send(res, 401, { error: "auth" });
+    const painsIn = Array.isArray(body.pains) ? body.pains.slice(0, 16) : [];
+    const pains = painsIn.map(p => ({
+      zone: String(p.zone || "").slice(0, 40),
+      label: String(p.label || "").slice(0, 80),
+      sev: Math.max(0, Math.min(10, Number(p.sev) || 0)),
+      type: String(p.type || "").slice(0, 40)
+    })).filter(p => p.zone);
+    const loadZone = ["red", "yellow", "green", "low", "none"].includes(body.loadZone) ? body.loadZone : "none";
+    const persistent = body.persistent === true;
+    const light = trafficFrom(pains, loadZone, persistent);
+    const sport = String(body.sport || "").slice(0, 24);
+    const ratio = Number.isFinite(Number(body.ratio)) ? Number(body.ratio) : null;
+    db.prepare(`INSERT INTO athlete_status (athlete_id,sport,light,label,detail,load_zone,ratio,pains_json,updated)
+      VALUES (?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(athlete_id) DO UPDATE SET sport=excluded.sport, light=excluded.light, label=excluded.label, detail=excluded.detail, load_zone=excluded.load_zone, ratio=excluded.ratio, pains_json=excluded.pains_json, updated=excluded.updated`)
+      .run(me.id, sport, light.light, light.label, light.detail, loadZone, ratio, JSON.stringify(pains), now());
+    return send(res, 200, light);
+  }
+  const denied = requireCoach(me);
+  if (denied) return send(res, denied.code, { error: denied.error, message: denied.message || "" });
+  if (req.method === "GET" && path === "/api/coach/home") {
+    return send(res, 200, {
+      athletes: rosterFor(me.id),
+      share: syncShare(me.id),
+      trialDays: PLANS.athlete.trialDays,
+      athleteMonthCents: PLANS.athlete.month,
+      coachMonthCents: PLANS.coach.month,
+      testTools: testTools()
+    });
+  }
+  if (req.method === "POST" && path === "/api/coach/invite") {
+    let code = "";
+    if (!body.rotate) {
+      const latest = db.prepare("SELECT code FROM invites WHERE coach_id = ? ORDER BY created DESC LIMIT 1").get(me.id);
+      if (latest) code = latest.code;
+    }
+    if (!code) {
+      code = randomBytes(9).toString("hex");
+      db.prepare("INSERT INTO invites (code, coach_id, created) VALUES (?,?,?)").run(code, me.id, now());
+    }
+    const url = PUBLIC_URL + "/?invito=" + code;
+    const svg = await inviteSvg(url);
+    return send(res, 200, { code, url, svg, trialDays: PLANS.athlete.trialDays, priceCents: PLANS.athlete.month });
+  }
+  if (req.method === "POST" && path === "/api/coach/assign") {
+    const athleteId = String(body.athleteId || "");
+    const link = db.prepare("SELECT * FROM coach_links WHERE athlete_id = ? AND coach_id = ?").get(athleteId, me.id);
+    if (!link) return send(res, 404, { error: "link" });
+    const raw = Array.isArray(body.drills) ? body.drills : [];
+    const drills = raw.map(d => ({
+      id: String(d.id || "").replace(/[^a-z0-9]/gi, "").slice(0, 20),
+      title: String(d.title || "").slice(0, 120),
+      sport: String(d.sport || "").slice(0, 24)
+    })).filter(d => d.id && d.title);
+    if (drills.length < 2 || drills.length > 3) return send(res, 400, { error: "drills", message: "Servono 2 o 3 drill." });
+    const aid = id();
+    db.prepare("INSERT INTO drill_assignments (id,coach_id,athlete_id,drills_json,created) VALUES (?,?,?,?,?)")
+      .run(aid, me.id, athleteId, JSON.stringify(drills), now());
+    return send(res, 200, { id: aid, drills });
+  }
+  if (req.method === "POST" && path === "/api/coach/test-pay") {
+    if (!testTools()) return send(res, 403, { error: "test" });
+    const athleteId = String(body.athleteId || "");
+    const link = db.prepare("SELECT * FROM coach_links WHERE athlete_id = ? AND coach_id = ?").get(athleteId, me.id);
+    if (!link) return send(res, 404, { error: "link" });
+    return send(res, 200, { subscription: markAthletePaying(athleteId), charged: false, test: true });
   }
   return send(res, 404, { error: "notfound" });
 }
 
 async function handleApi(req, res, path) {
   const body = req.method === "POST" ? await readBody(req) : {};
+  if (req.method === "GET" && path.startsWith("/api/invites/")) {
+    const code = decodeURIComponent(path.slice("/api/invites/".length)).replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
+    const info = invitePublic(code);
+    if (!info) return send(res, 404, { error: "invite" });
+    return send(res, 200, info);
+  }
   if (req.method === "POST" && path === "/api/register") {
     const nome = String(body.nome || "").trim(), cognome = String(body.cognome || "").trim();
     const telefono = String(body.telefono || "").trim(), email = String(body.email || "").trim().toLowerCase();
     const nascita = String(body.nascita || ""), paese = String(body.paese || ""), citta = String(body.citta || "").trim();
     const password = String(body.password || "");
+    const inviteCode = String(body.invito || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
+    const inviteRow = inviteCode ? db.prepare("SELECT * FROM invites WHERE code = ?").get(inviteCode) : null;
+    if (inviteCode && !inviteRow) return send(res, 400, { error: "invite", message: "Invito non valido" });
     if (!nome || !cognome || !telefono || !email || !nascita || !paese || !citta || !password) return send(res, 400, { error: "required" });
     if (!emailOk(email)) return send(res, 400, { error: "email" });
     if (password.length < 8) return send(res, 400, { error: "password" });
@@ -229,6 +503,7 @@ async function handleApi(req, res, path) {
     const out = { ok: true, emailSent };
     if (!emailSent) out.unconfigured = true;
     if (devLinks()) out.devLink = link;
+    if (inviteRow) out.invite = attachInvite(uid, inviteRow);
     return send(res, 201, out);
   }
   if (req.method === "POST" && path === "/api/verify") {
@@ -243,7 +518,13 @@ async function handleApi(req, res, path) {
     if (!row || !row.verified || !(await checkPw(String(body.password || ""), row.pass_salt, row.pass_hash))) return send(res, 401, { error: "login" });
     const tok = token();
     db.prepare("INSERT INTO sessions (token, user_id, exp) VALUES (?,?,?)").run(tok, row.id, now() + 30 * 86400000);
-    return send(res, 200, { token: tok, user: userPublic(row) });
+    const inviteCode = String(body.invito || "").replace(/[^a-zA-Z0-9]/g, "").slice(0, 40);
+    let invite = null;
+    if (inviteCode) {
+      const inviteRow = db.prepare("SELECT * FROM invites WHERE code = ?").get(inviteCode);
+      invite = inviteRow ? attachInvite(row.id, inviteRow) : { error: "invite" };
+    }
+    return send(res, 200, { token: tok, user: userPublic(row), invite });
   }
   if (req.method === "POST" && path === "/api/logout") {
     const h = req.headers.authorization || "";
@@ -290,6 +571,7 @@ async function handleApi(req, res, path) {
   }
   if (req.method === "GET" && path === "/api/health") return send(res, 200, { ok: true, smtp: smtpOn() });
   if (path.startsWith("/api/billing")) return handleBilling(req, res, path, body, me);
+  if (path.startsWith("/api/coach") || path === "/api/me/drills" || path === "/api/me/coach") return handleCoach(req, res, path, body, me);
   return send(res, 404, { error: "notfound" });
 }
 
