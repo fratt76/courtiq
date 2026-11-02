@@ -575,6 +575,14 @@ body{background:radial-gradient(120% 60% at 100% 0%,rgba(30,200,230,.10) 0%,tran
 .logo{border-radius:0;object-fit:contain}
 .logo-wide{display:none;height:46px;width:auto;flex:none}
 .kq-grad{background:var(--brand-grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.exfig{margin:8px 0 4px;text-align:center}
+.exfig-svg{width:min(100%,280px);height:auto;display:block;margin:0 auto;border-radius:16px}
+.exfig-t{margin:8px 0 6px;font-size:.92rem;text-align:left}
+.exfig-dots{display:flex;gap:8px;justify-content:center}
+.exfig-dot{width:14px;height:14px;min-height:32px;min-width:32px;border-radius:999px;border:0;background:#2a323b;padding:0;position:relative}
+.exfig-dot::after{content:"";position:absolute;left:9px;top:9px;width:14px;height:14px;border-radius:50%;background:#2a323b}
+.exfig-dot.on::after{background:#A6F03C}
+.exfig-top{display:flex;justify-content:flex-start;margin-bottom:6px}
 .payoff{color:var(--acc2)}
 .splash-card{background:linear-gradient(180deg,#14181d,#0c0e11);border-color:#232a32}
 .splash-card img.splash-logo{width:100%;max-width:360px;height:auto;border-radius:0;display:block;margin:0 auto 4px}

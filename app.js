@@ -774,6 +774,7 @@ function renderRecovery() {
       ${r.why ? `<p class="small mut">${esc(r.why)}</p>` : ""}
       <div class="timer"><div class="ringwrap"><svg viewBox="0 0 220 220"><circle class="bgc" cx="110" cy="110" r="96"/><circle class="fgc" id="fgc" cx="110" cy="110" r="96" stroke-dasharray="${2 * Math.PI * 96}" stroke-dashoffset="0"/></svg>
         <div class="center"><b id="tm-t">${fmtTime(TM.rem)}</b><span id="tm-n">${esc(r.steps[TM.i]?.n || "Fatto!")}</span></div></div>
+        <div id="tm-fig"></div>
         <p class="small" id="tm-d" style="text-align:center;min-height:2.6em">${esc(r.steps[TM.i]?.d || "Routine completata. Ottimo lavoro!")}</p>
         <div class="tctrl"><button type="button" class="btn" id="tm-prev" aria-label="Precedente">⏮</button><button type="button" class="btn pri play" id="tm-play">${TM.run ? "Pausa" : "Avvia"}</button><button type="button" class="btn" id="tm-next" aria-label="Successivo">⏭</button><button type="button" class="btn" id="tm-rst" aria-label="Ricomincia">↺</button></div></div>
       <ol class="list steps" style="margin-top:12px">${r.steps.map((s, k) => `<li class="${k === TM.i ? "cur" : k < TM.i ? "done" : ""}" data-step="${k}"><span class="num">${k + 1}</span><div class="grow"><div class="t">${esc(s.n)}</div><div class="s">${esc(s.d)}</div></div><span class="small mut">${s.s}s</span></li>`).join("")}</ol></div>
@@ -792,12 +793,27 @@ function renderRecovery() {
   $$("[data-step]", v).forEach(li => li.onclick = () => { TM.i = +li.dataset.step; TM.rem = TM.r.steps[TM.i].s; renderRecovery(); });
   $$("[data-rt]", v).forEach(b => b.onclick = () => { pause(); loadRoutine(b.dataset.rt === "gen" ? gen : ROUTINES.find(x => x.id === b.dataset.rt), true); window.scrollTo(0, 0); });
   paintTimer();
+  tmFigMount();
 }
-function loadRoutine(r, rerender) { TM.r = r; TM.i = 0; TM.rem = r.steps[0].s; if (rerender) renderRecovery(); }
+function tmFigSteps() {
+  const s = TM.r && TM.r.steps[TM.i];
+  if (!s || typeof figGuide !== "function") return [];
+  return figGuide(s.n, s.d);
+}
+function tmFigMount() {
+  if (typeof figMount !== "function") return;
+  figMount("tm-fig", tmFigSteps(), TM.fig || 0, n => { TM.fig = n; });
+}
+function loadRoutine(r, rerender) { TM.r = r; TM.i = 0; TM.rem = r.steps[0].s; TM.fig = 0; if (rerender) renderRecovery(); }
 function paintTimer() {
   const st = TM.r.steps[TM.i]; const f = $("#fgc"); if (!f) return;
   const C = 2 * Math.PI * 96; f.setAttribute("stroke-dashoffset", st ? C * (1 - TM.rem / st.s) : 0);
   $("#tm-t").textContent = st ? fmtTime(TM.rem) : "0:00";
+  if (TM.run && st && typeof figGuide === "function") {
+    const steps = tmFigSteps();
+    const idx = Math.min(steps.length - 1, Math.floor((st.s - Math.max(0, TM.rem)) / Math.max(3, st.s / steps.length)));
+    if (idx > (TM.fig || 0)) { TM.fig = idx; tmFigMount(); }
+  }
 }
 function play() {
   if (TM.i >= TM.r.steps.length) loadRoutine(TM.r, false);
@@ -808,13 +824,13 @@ function play() {
     const now = performance.now(); TM.rem -= (now - TM.last) / 1000; TM.last = now;
     if (TM.rem <= 0) { TM.i++; beep(880); navigator.vibrate && navigator.vibrate(150);
       if (TM.i >= TM.r.steps.length) { pause(); toast("Routine completata"); if (TAB === "recupero") renderRecovery(); return; }
-      TM.rem = TM.r.steps[TM.i].s; if (TAB === "recupero") renderRecovery(); }
+      TM.rem = TM.r.steps[TM.i].s; TM.fig = 0; if (TAB === "recupero") renderRecovery(); }
     if (TAB === "recupero") paintTimer();
   }, 250);
   if (TAB === "recupero") $("#tm-play").textContent = "Pausa";
 }
 function pause() { TM.run = false; clearInterval(TM.h); wakeLock(false); const b = $("#tm-play"); if (b) b.textContent = "Avvia"; }
-function step(d) { TM.i = Math.max(0, Math.min(TM.r.steps.length - 1, TM.i + d)); TM.rem = TM.r.steps[TM.i].s; renderRecovery(); }
+function step(d) { TM.i = Math.max(0, Math.min(TM.r.steps.length - 1, TM.i + d)); TM.rem = TM.r.steps[TM.i].s; TM.fig = 0; renderRecovery(); }
 let AC = null;
 function beep(f) { try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); const o = AC.createOscillator(), g = AC.createGain();
   o.frequency.value = f; g.gain.setValueAtTime(.15, AC.currentTime); g.gain.exponentialRampToValueAtTime(.001, AC.currentTime + .25); o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime + .26); } catch (e) { } }

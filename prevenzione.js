@@ -185,11 +185,12 @@ function ptTick() {
   if (st.u && st.ph === "work" && !PT.half && PT.rem <= st.s / 2) { PT.half = true; beep(740); navigator.vibrate && navigator.vibrate(80); const n = $("#pt-side"); if (n) n.textContent = "Cambia lato"; }
   if (PT.rem <= 0) { ptGo(PT.i + 1, true); return; }
   ptPaint();
+  ptFigAdvance();
 }
 function ptPause() { PT.run = false; clearInterval(PT.h); PT.h = null; wakeLock(false); const b = $("#pt-play"); if (b) b.textContent = "Avvia"; }
 function ptGo(i, auto) {
   if (i >= PT.list.length) { ptFinish(); return; }
-  PT.i = Math.max(0, i); PT.rem = PT.list[PT.i].s; PT.half = false;
+  PT.i = Math.max(0, i); PT.rem = PT.list[PT.i].s; PT.half = false; PT.fig = 0;
   if (auto) { const ph = PT.list[PT.i].ph; beep(ph === "work" ? 880 : 520); navigator.vibrate && navigator.vibrate(ph === "work" ? 150 : 60); }
   if (TAB === "prevenzione") renderPrevention();
 }
@@ -216,6 +217,27 @@ function ptPaint() {
   const C = 2 * Math.PI * 96; f.setAttribute("stroke-dashoffset", PT.done ? 0 : C * (1 - Math.max(0, PT.rem) / st.s));
   $("#pt-t").textContent = PT.done ? "0:00" : fmtTime(PT.rem);
 }
+function ptFigSteps() {
+  const st = PT.list && PT.list[PT.i]; if (!st || typeof figGuide !== "function") return [];
+  const ex = PV_BYID[st.id];
+  if (PT.done) return [{ pose: "breathe", text: "Sessione conclusa. Respira e muoviti con calma." }];
+  if (st.ph === "rest") return [{ pose: "breathe", text: "Recupero: resta fermo, inspira dal naso ed espira lento. La prossima serie riparte da capo." }];
+  if (st.ph === "prep") return [{ pose: "stand", text: "Preparati: sistema l'appoggio e leggi il gesto prima di partire. " + (ex.k || "") }];
+  return figGuide(ex.n, ex.d, ex.k);
+}
+function ptFigAdvance() {
+  const steps = ptFigSteps(); if (steps.length < 2 || !PT.run) return;
+  const st = PT.list[PT.i];
+  const idx = Math.min(steps.length - 1, Math.floor((st.s - Math.max(0, PT.rem)) / Math.max(3, st.s / steps.length)));
+  if (idx <= (PT.fig || 0)) return;
+  PT.fig = idx;
+  figMount("pt-fig", steps, idx, n => { PT.fig = n; });
+}
+function figMount(id, steps, idx, onPick) {
+  const host = document.getElementById(id); if (!host || typeof figPanel !== "function") return;
+  host.innerHTML = figPanel(steps, idx);
+  host.querySelectorAll("[data-fig]").forEach(b => b.onclick = () => { const n = +b.dataset.fig; if (onPick) onPick(n); figMount(id, steps, n, onPick); });
+}
 function ptCard() {
   if (!PT.list) return "";
   const st = PT.list[PT.i], ex = PV_BYID[st.id], it = st.it, B = PV_BLOCKS[ex.b];
@@ -225,6 +247,7 @@ function ptCard() {
   const C = 2 * Math.PI * 96;
   return `<div class="card pt" id="pt"><div class="row between"><span class="pill" style="color:${B.color};border-color:${B.color}">${B.label}</span><span class="small mut">Esercizio ${st.k + 1}/${PT.nEx}</span></div>
     <div class="ptbar"><div style="width:${Math.round((PT.done ? 1 : PT.i / PT.list.length) * 100)}%"></div></div>
+    <div id="pt-fig"></div>
     <h3 style="margin:10px 0 2px">${esc(PT.done ? (PT.kind === "prev" ? "Sessione completata!" : "Recovery completato") : ex.n)}</h3>
     ${PT.done ? `<p class="small mut">${esc(PT.title)}. Ottimo lavoro!</p>` : `<p class="small mut" style="margin:0">${it.sets > 1 ? `Serie ${st.set || 1}/${it.sets} · ` : ""}${doseLine}</p>`}
     <div class="timer"><div class="ringwrap"><svg viewBox="0 0 220 220"><circle class="bgc" cx="110" cy="110" r="96"/><circle class="fgc ${st.ph}" id="pt-fgc" cx="110" cy="110" r="96" stroke-dasharray="${C}" stroke-dashoffset="0"/></svg>
@@ -257,6 +280,7 @@ function ptBind(v) {
     });
   });
   ptPaint();
+  figMount("pt-fig", ptFigSteps(), PT.fig || 0, n => { PT.fig = n; });
 }
 
 /* ---------- vista principale ---------- */
